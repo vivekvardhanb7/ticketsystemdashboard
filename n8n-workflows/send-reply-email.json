@@ -1,0 +1,65 @@
+{
+  "name": "Send Reply Email from Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-support-reply",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook",
+      "webhookId": "send-support-reply"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toRecipients": "={{ $json.body.to }}",
+        "subject": "={{ $json.body.subject }}",
+        "bodyContent": "={{ $json.body.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [400, 0],
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Send Email via Outlook",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "MwSldua42fb6Do2T",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, to: $json.body.to, subject: $json.body.subject }) }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [800, 0],
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Send Email via Outlook", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Email via Outlook": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": true }
+}

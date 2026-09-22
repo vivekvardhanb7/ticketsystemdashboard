@@ -1,0 +1,52 @@
+{
+  "name": "Incoming Email to Ticket",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": { "item": [{ "mode": "everyMinute" }] },
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "9fc1dbfd-4a65-40d7-b769-6164c4ece840",
+      "name": "Microsoft Outlook Trigger",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "MwSldua42fb6Do2T",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.naf-cloudsystem.de/api/NAFWebsite/issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fullName: $json.from.emailAddress.name, email: $json.from.emailAddress.address, subject: $json.subject, description: $json.bodyPreview || $json.body.content, requestType: 'Email Support', accountType: 'Customer', source: 'email' }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 0],
+      "id": "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Create Ticket in NAF API"
+    }
+  ],
+  "connections": {
+    "Microsoft Outlook Trigger": {
+      "main": [
+        [{ "node": "Create Ticket in NAF API", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": { "templateCredsSetupCompleted": true }
+}
