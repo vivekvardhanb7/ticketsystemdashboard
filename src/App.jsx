@@ -29,9 +29,11 @@ import logo from './assets/naf-logo-animated.gif';
 import LoginPage from './LoginPage';
 import { COLORS, getAuthHeaders, timeAgo } from './designTokens';
 
+
 /* -------------------------------------------------------------------------- */
-/* CUSTOM HOOKS                                                                */
+/* CUSTOM HOOKS                                                               */
 /* -------------------------------------------------------------------------- */
+
 
 /** Animates a number from 0 → target over ~600ms */
 function useCountUp(target, duration = 300) {
@@ -74,9 +76,36 @@ function useDebounce(value, delay = 300) {
   return debounced;
 }
 
+
+
+
+const REQUEST_TYPE_MAPPING = {
+  "technical": "Machine Issue",
+  "payment": "Payment / Refund",
+  "membership": "NAF Membership",
+  "wallet": "NAF Wallet",
+  "mobile_app": "Mobile App",
+  "naf_cloud": "NAF Cloud System",
+  "reservation": "Reservation / Pickup",
+  "complaint": "Complaint",
+  "feedback": "Feedback / Suggestion",
+  "partnership": "Partnership / Business Support",
+  "other": "Other"
+};
+
+const ACCOUNT_TYPE_MAPPING = {
+  "user": "Customer / Guest",
+  "member": "NAF Member",
+  "business": "Business / Partner",
+  "other": "Other",
+  "not_collected": "Not collected",
+  "Not collected": "Not collected"
+};
+
 /* -------------------------------------------------------------------------- */
-/* MAIN APP COMPONENT                                                          */
+/* MAIN APP COMPONENT                                                         */
 /* -------------------------------------------------------------------------- */
+
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -136,11 +165,19 @@ export default function App() {
       
       h1, h2, h3, h4, .font-heading {
         font-family: 'Power Grotesk', sans-serif;
+      }
+      .ticket-main-heading {
+        font-family: 'Power Grotesk', sans-serif;
+      }
         color: ${COLORS.text.heading};
       }
 
       .ticket-main-heading {
         font-family: 'Power Grotesk', sans-serif;
+      }
+      .ticket-main-heading {
+        font-family: 'Power Grotesk', sans-serif;
+      }
       }
 
       input, textarea, select, button, label, p, span, div {
@@ -346,9 +383,11 @@ export default function App() {
   );
 }
 
+
 /* -------------------------------------------------------------------------- */
 /* LAYOUTS                                                                    */
 /* -------------------------------------------------------------------------- */
+
 
 function AdminLayout({ children, onLogout }) {
   return (
@@ -376,26 +415,150 @@ function AdminLayout({ children, onLogout }) {
   );
 }
 
+
+/* -------------------------------------------------------------------------- */
+/* CUSTOM COMPONENTS                                                          */
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* CUSTOM COMPONENTS                                                          */
+/* -------------------------------------------------------------------------- */
+function PillButton({ label, active, onClick, count }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center h-[34px] px-3 rounded-[7px] border text-xs font-medium whitespace-nowrap transition-colors"
+      style={{
+        backgroundColor: active ? COLORS.activeBg : 'transparent',
+        borderColor: active ? COLORS.activeBorder : COLORS.border,
+        color: active ? COLORS.primary[500] : COLORS.text.body,
+      }}
+    >
+      {label}{count != null ? `  ${count}` : ''}
+    </button>
+  );
+}
+
+
+
+function FilterSelect({ value, onChange, options, defaultLabel }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  const active = value !== 'All';
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center h-[34px] pl-3 pr-8 rounded-[7px] border text-xs font-medium whitespace-nowrap transition-colors outline-none cursor-pointer"
+        style={{
+          backgroundColor: active ? COLORS.activeBg : 'transparent',
+          borderColor: active ? COLORS.activeBorder : COLORS.border,
+          color: active ? COLORS.primary[500] : COLORS.text.body,
+        }}
+      >
+        {active ? value : defaultLabel}
+      </button>
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+        <span className="text-[10px]" style={{ color: COLORS.text.disabled }}>{open ? '▼' : '▼'}</span>
+      </div>
+      {open && (
+        <div className="absolute top-[38px] left-0 z-50 min-w-[180px] py-1 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40 max-h-[260px] overflow-y-auto">
+          <button onClick={() => { onChange('All'); setOpen(false); }}
+            className={`w-full text-left px-3 py-2 text-xs transition-colors ${value === 'All' ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#B8BDC7] hover:bg-[#1A1C20]'}`}>
+            {defaultLabel}
+          </button>
+          {options.map(opt => (
+            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-xs transition-colors ${value === opt ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#B8BDC7] hover:bg-[#1A1C20]'}`}>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function DarkSelect({ name, value, onChange, placeholder, options, borderColor }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  const selectedLabel = options.find(o => (typeof o === 'string' ? o : o.value) === value);
+  const displayLabel = selectedLabel ? (typeof selectedLabel === 'string' ? selectedLabel : selectedLabel.label) : null;
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen(!open)}
+        className="w-full h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-left flex items-center justify-between outline-none cursor-pointer"
+        style={{ borderColor: borderColor || '#24262B', color: displayLabel ? '#EFF2F0' : '#78828A' }}>
+        <span className="truncate">{displayLabel || placeholder}</span>
+        <span className="text-[10px] text-[#575C66] ml-2">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="absolute top-[44px] left-0 right-0 z-50 py-1 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40 max-h-[220px] overflow-y-auto">
+          {options.map(opt => {
+            const val = typeof opt === 'string' ? opt : opt.value;
+            const label = typeof opt === 'string' ? opt : opt.label;
+            return (
+              <button key={val} type="button" onClick={() => { onChange({ target: { name, value: val } }); setOpen(false); }}
+                className={`w-full text-left px-3 py-2.5 text-[13px] transition-colors ${value === val ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#C4C9D1] hover:bg-[#1A1C20]'}`}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function QueueStat({ label, value, subtitle, valueColor }) {
+  return (
+    <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
+      <span className="text-[13px] font-medium" style={{ color: COLORS.text.heading }}>{label}</span>
+      <span className="text-[28px] font-bold font-heading" style={{ color: valueColor || COLORS.text.heading }}>{value}</span>
+      {subtitle && <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>{subtitle}</span>}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* ADMIN DASHBOARD                                                            */
 /* -------------------------------------------------------------------------- */
 
+
 const TICKETS_PER_PAGE = 10;
 
 function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry, setTickets, setToast }) {
-  const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [filter, setFilter] = useState('All');
+  const [channelFilter, setChannelFilter] = useState('All');
+  const [reqTypeFilter, setReqTypeFilter] = useState('All');
+  const [accTypeFilter, setAccTypeFilter] = useState('All');
   const [searchInput, setSearchInput] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-  const dateInputRef = useRef(null);
+  const [visibleColumns, setVisibleColumns] = useState({
+    reference: true, subject: true, requester: true,
+    machine: true, requestType: true, status: true,
+  });
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const columnsRef = useRef(null);
   const searchQuery = useDebounce(searchInput, 300);
   const [currentPage, setCurrentPage] = useState(1);
   const [emailTicket, setEmailTicket] = useState(null);
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
   const [viewTicket, setViewTicket] = useState(null);
   const [deleteTicket, setDeleteTicket] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
-  // Stores email history per ticket: { [ticketId]: EmailData[] }
-  // Fetched from API when a ticket is opened
   const [emailHistory, setEmailHistory] = useState({});
 
   useEffect(() => {
@@ -408,8 +571,6 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
         const res = await fetch(`/api/NAFWebsite/issue/${activeTicket.id}/emails`, { headers });
         if (res.ok) {
           const data = await res.json();
-          // API uses 'outbound'/'inbound', 'direction' field needs to map to UI expectations
-          // UI expects 'sent' for outbound and 'received' for inbound
           const mappedData = data.map(email => ({
             ...email,
             direction: email.direction === 'outbound' ? 'sent' : 'received'
@@ -422,6 +583,7 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
     };
     fetchEmails();
   }, [viewTicket, emailTicket, isAuthenticated]);
+  const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const stats = useMemo(() => ({
     open: tickets.filter(t => t.status === 'OPEN').length,
@@ -429,39 +591,67 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
     closed: tickets.filter(t => t.status === 'CLOSED').length
   }), [tickets]);
 
-  // Reset page on filter/search change
-  useEffect(() => { setCurrentPage(1); }, [filter, searchQuery, dateFilter]);
+  const totalActive = stats.open + stats.inProgress;
+
+  const channelCounts = useMemo(() => {
+    const counts = { 'Website form': 0, 'Email': 0, 'WhatsApp': 0 };
+    tickets.forEach(t => {
+      const ch = t.channel || 'Website form';
+      if (counts[ch] !== undefined) counts[ch]++;
+      else counts['Website form']++;
+    });
+    return counts;
+  }, [tickets]);
+
+  useEffect(() => {
+    const handler = (e) => { if (columnsRef.current && !columnsRef.current.contains(e.target)) setColumnsOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  useEffect(() => { setCurrentPage(1); }, [filter, channelFilter, reqTypeFilter, accTypeFilter, searchQuery]);
 
   const filtered = useMemo(() => {
     let result = tickets;
 
-    // Status filter
-    if (filter !== 'All') {
-      result = result.filter(t => String(t.status).toUpperCase() === String(filter).toUpperCase());
+    const statusMap = { 'Open': 'OPEN', 'In Progress': 'IN_PROGRESS', 'Closed': 'CLOSED' };
+    if (filter === 'All') {
+      result = result.filter(t => t.status !== 'CLOSED');
+    } else if (statusMap[filter]) {
+      result = result.filter(t => t.status === statusMap[filter]);
+    } else if (filter === 'OPEN' || filter === 'IN_PROGRESS' || filter === 'CLOSED') {
+      result = result.filter(t => t.status === filter);
     }
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        (t.ticketId || '').toLowerCase().includes(q) ||
-        (t.contactPerson || '').toLowerCase().includes(q) ||
-        (t.email || '').toLowerCase().includes(q) ||
-        (t.subject || '').toLowerCase().includes(q)
-      );
+    if (channelFilter !== 'All') {
+      result = result.filter(t => (t.channel || 'Website form') === channelFilter);
     }
 
-    // Date filter
-    if (dateFilter) {
+    if (reqTypeFilter !== 'All') {
       result = result.filter(t => {
-        if (!t.createdAt) return false;
-        const ticketDate = new Date(t.createdAt).toISOString().split('T')[0];
-        return ticketDate === dateFilter;
+        const tReq = REQUEST_TYPE_MAPPING[t.requestType] || t.requestType || 'Other';
+        return tReq === reqTypeFilter;
+      });
+    }
+    
+    if (accTypeFilter !== 'All') {
+      result = result.filter(t => {
+        const tAcc = ACCOUNT_TYPE_MAPPING[t.accountType] || t.accountType || 'Customer';
+        return tAcc === accTypeFilter;
       });
     }
 
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t =>
+        (t.ticketId || '').toLowerCase().includes(q) ||
+        (t.subject || t.problemType || '').toLowerCase().includes(q) ||
+        (t.contactPerson || '').toLowerCase().includes(q) ||
+        (t.machineNumber || '').toLowerCase().includes(q)
+      );
+    }
+
     return result;
-  }, [tickets, filter, searchQuery, dateFilter]);
+  }, [tickets, filter, channelFilter, reqTypeFilter, accTypeFilter, searchQuery]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / TICKETS_PER_PAGE));
@@ -561,132 +751,191 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
   }, [emailHistory]);
 
   return (
-    <div className="space-y-4 md:space-y-8">
-
-      <div className="flex justify-between items-center bg-[#111215] p-4 rounded-xl border border-[#24262B]">
-        <h2 className="text-xl font-bold font-heading" style={{ color: COLORS.text.heading }}>Support Tickets</h2>
-        <button onClick={() => setNewTicketOpen(true)} className="flex items-center h-[34px] px-4 rounded-[7px] border border-[#345135] bg-[#78EF63] hover:opacity-90 transition-opacity">
-          <span className="text-[12px] font-bold text-[#0C0D0E]">+ New Ticket</span>
+    <div className="flex flex-col gap-5">
+      {/* Page Heading */}
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-1 flex-1">
+          <h1 className="text-[28px] font-semibold leading-[38px] m-0" style={{ color: COLORS.text.heading }}>Support workspace</h1>
+          <p className="text-[13px] m-0" style={{ color: COLORS.text.body }}>Every request. One queue. Website form, email and WhatsApp.</p>
+        </div>
+        <div className="flex items-center h-[34px] px-3 rounded-[7px] border"
+          style={{ borderColor: COLORS.border }}>
+          <span className="text-xs font-medium" style={{ color: COLORS.text.body }}>{todayStr}</span>
+        </div>
+        <button 
+          onClick={() => setNewTicketOpen(true)}
+          className="flex items-center h-[34px] px-3 rounded-[7px] border font-medium text-xs transition-colors hover:opacity-90"
+          style={{ backgroundColor: COLORS.primary[500], borderColor: COLORS.activeBorder, color: COLORS.backgrounds.main }}>
+          +  New ticket
         </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3 md:gap-6">
-        <KPICard label="Open" value={stats.open} color={COLORS.primary[500]} />
-        <KPICard label="InProgress" value={stats.inProgress} color={COLORS.secondary[500]} />
-        <KPICard label="Closed" value={stats.closed} color="#fff" />
+      {/* Queue Overview KPI Strip */}
+      <div className="flex rounded-[10px] border overflow-hidden kpi-animate"
+        style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
+        <QueueStat label="Open" value={stats.open} subtitle="Awaiting response" />
+        <QueueStat label="In Progress" value={stats.inProgress} subtitle="Being handled" />
+        <QueueStat label="Closed" value={stats.closed} subtitle="Closed today" valueColor={COLORS.primary[500]} />
       </div>
 
       {/* Error Banner */}
       {fetchError && (
-        <div className="flex items-center gap-4 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
+        <div className="flex items-center gap-4 p-4 rounded-[10px] border border-red-500/30 bg-red-500/10">
           <WifiOff className="w-5 h-5 text-red-400 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-bold text-red-300 force-satoshi">Failed to load tickets</p>
-            <p className="text-xs text-red-300/60 force-satoshi">{fetchError}</p>
+            <p className="text-sm font-semibold text-red-300">Failed to load tickets</p>
+            <p className="text-xs text-red-300/60">{fetchError}</p>
           </div>
           <button onClick={onRetry}
-            className="px-4 py-2 text-xs font-bold rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors force-satoshi flex items-center gap-2">
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors flex items-center gap-2">
             <RefreshCw className="w-3 h-3" /> Retry
           </button>
         </div>
       )}
 
       {/* Ticket Table Card */}
-      <div className="rounded-[1.5rem] overflow-hidden shadow-2xl" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border, borderWidth: 1 }}>
-        {/* Toolbar */}
-        <div className="p-4 md:p-6 border-b flex flex-col md:flex-row gap-4 justify-between items-start md:items-center" style={{ borderColor: COLORS.border }}>
-          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
-            {['All', 'OPEN', 'IN_PROGRESS', 'CLOSED'].map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all force-satoshi whitespace-nowrap ${filter === f ? 'bg-white text-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
-                {f}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* Date Filter */}
-            <div className="flex items-center gap-1.5">
-              {dateFilter && (
-                <>
-                  <span className="text-[11px] text-[#7FEE64] force-satoshi whitespace-nowrap">{new Date(dateFilter + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                  <button onClick={() => setDateFilter('')} className="p-0.5 hover:bg-white/10 rounded transition-colors">
-                    <X className="w-3 h-3 text-white/30 hover:text-white/60" />
-                  </button>
-                </>
-              )}
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="sr-only"
-                style={{ colorScheme: 'dark' }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (dateInputRef.current) {
-                    try { dateInputRef.current.showPicker(); } catch { dateInputRef.current.click(); }
-                  }
-                }}
-                className={`p-2 rounded-lg border transition-colors cursor-pointer ${dateFilter ? 'border-[#7FEE64]/40 bg-[#7FEE64]/10 text-[#7FEE64]' : 'border-white/5 text-white/40 hover:text-white/70 hover:bg-white/5'}`}
-                title={dateFilter || 'Filter by date'}
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
-            </div>
+      <div className="rounded-[10px] border overflow-hidden"
+        style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
 
-            {/* Search Bar */}
-            <div className="relative w-full md:w-auto">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-40 text-white" />
-              <input
-                type="text"
-                placeholder="Search tickets..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-9 pr-4 py-2 rounded-lg text-sm w-full md:w-64 outline-none focus:border-white/20 border border-white/5 text-white force-satoshi"
-                style={{ backgroundColor: COLORS.backgrounds.input }}
+        {/* Queue Controls */}
+                  <div className="p-4 flex flex-col gap-4">
+            {/* Row 1: Status tabs + Search + Columns + Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <PillButton label="All active" count={totalActive} active={filter === 'All'} onClick={() => setFilter('All')} />
+              <PillButton label="Open" count={stats.open} active={filter === 'OPEN'} onClick={() => setFilter('OPEN')} />
+              <PillButton label="In Progress" count={stats.inProgress} active={filter === 'IN_PROGRESS'} onClick={() => setFilter('IN_PROGRESS')} />
+              <PillButton label="Closed" count={stats.closed} active={filter === 'CLOSED'} onClick={() => setFilter('CLOSED')} />
+  
+              <div className="flex-1" />
+  
+              {/* Search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone, reference..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="h-[36px] w-[322px] pl-3 pr-8 rounded-[7px] border text-xs outline-none transition-colors focus:border-white/20"
+                  style={{ backgroundColor: 'transparent', borderColor: COLORS.border, color: COLORS.text.heading }}
+                />
+                {searchInput && (
+                  <button onClick={() => setSearchInput('')} className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity">
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                )}
+              </div>
+  
+              {/* Column toggle */}
+              <div className="relative" ref={columnsRef}>
+                <PillButton label="Columns" active={columnsOpen} onClick={() => setColumnsOpen(!columnsOpen)} />
+                {columnsOpen && (
+                  <div className="absolute right-0 top-[38px] z-50 w-[200px] py-2 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40">
+                    <div className="px-3 pb-2 mb-2 border-b border-[#24262B] text-[10px] font-bold text-[#78828A] uppercase tracking-wider">
+                      Toggle Columns
+                    </div>
+                    {Object.entries({
+                      reference: 'Reference ID',
+                      subject: 'Subject',
+                      requester: 'Requester',
+                      machine: 'Machine #',
+                      requestType: 'Request Type',
+                      status: 'Status'
+                    }).map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 px-3 py-1.5 hover:bg-[#1A1C20] cursor-pointer transition-colors group">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[key]}
+                          onChange={(e) => setVisibleColumns(prev => ({ ...prev, [key]: e.target.checked }))}
+                          className="rounded-sm border-[#353A40] bg-transparent text-[#47EB3D] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                        />
+                        <span className={`text-xs ${visibleColumns[key] ? 'text-white' : 'text-[#78828A] group-hover:text-white'} transition-colors`}>
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Filter panel toggle */}
+              <PillButton label="Filter" active={filterPanelOpen} onClick={() => setFilterPanelOpen(!filterPanelOpen)} />
+            </div>
+  
+            {/* Row 2: Channel filters + classification dropdowns */}
+            {filterPanelOpen && <div className="flex items-center gap-2 flex-wrap">
+              <PillButton label="All channels" count={tickets.length} active={channelFilter === 'All'} onClick={() => setChannelFilter('All')} />
+              <PillButton label="Website form" count={channelCounts['Website form']} active={channelFilter === 'Website form'} onClick={() => setChannelFilter('Website form')} />
+              <PillButton label="Email" count={channelCounts['Email']} active={channelFilter === 'Email'} onClick={() => setChannelFilter('Email')} />
+              <PillButton label="WhatsApp" count={channelCounts['WhatsApp']} active={channelFilter === 'WhatsApp'} onClick={() => setChannelFilter('WhatsApp')} />
+  
+              <div className="w-6" />
+  
+              <FilterSelect 
+                value={reqTypeFilter}
+                onChange={(val) => setReqTypeFilter(val)}
+                options={["Machine Issue", "Payment / Refund", "NAF Membership", "NAF Wallet", "Mobile App", "NAF Cloud System", "Reservation / Pickup", "Complaint", "Feedback / Suggestion", "Partnership / Business Support", "Other"]}
+                defaultLabel="Request type"
               />
-              {searchInput && (
-                <button onClick={() => setSearchInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
-                  <X className="w-3 h-3" />
+              <FilterSelect 
+                value={accTypeFilter}
+                onChange={(val) => setAccTypeFilter(val)}
+                options={["Customer / Guest", "NAF Member", "Business / Partner", "Other", "Not collected"]}
+                defaultLabel="Account type"
+              />
+
+              {/* Clear all filters */}
+              {(channelFilter !== 'All' || reqTypeFilter !== 'All' || accTypeFilter !== 'All') && (
+                <button
+                  onClick={() => { setChannelFilter('All'); setReqTypeFilter('All'); setAccTypeFilter('All'); }}
+                  className="text-[11px] font-medium ml-2 underline underline-offset-2 transition-colors hover:opacity-80"
+                  style={{ color: '#78828A' }}>
+                  Clear filters
                 </button>
               )}
-            </div>
+            </div>}
+          </div>
+
+          {/* Desktop Table */}
+        <div className="hidden md:block">
+          {/* Divider */}
+          <div className="h-[1px]" style={{ backgroundColor: COLORS.border }} />
+
+          <div className="flex items-center h-[46px] px-4 gap-3">
+            <span className="text-xs" style={{ color: COLORS.text.body }}>
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * TICKETS_PER_PAGE + 1}–{Math.min(currentPage * TICKETS_PER_PAGE, filtered.length)} of {filtered.length} active tickets
+            </span>
+            <div className="flex-1" />
+            <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>All times CEST</span>
+
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}
+              className="flex items-center h-[34px] px-3 rounded-[7px] border transition-colors disabled:opacity-30"
+              style={{ borderColor: COLORS.border, color: COLORS.text.body }}
+            >←</button>
+
+            {[...Array(totalPages)].map((_, i) => (
+              <button key={i + 1}
+                onClick={() => setCurrentPage(i + 1)}
+                className="flex items-center h-[34px] px-3 rounded-[7px] border text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: currentPage === i + 1 ? COLORS.activeBg : 'transparent',
+                  borderColor: currentPage === i + 1 ? COLORS.activeBorder : COLORS.border,
+                  color: currentPage === i + 1 ? COLORS.primary[500] : COLORS.text.body,
+                }}
+              >{i + 1}</button>
+            ))}
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+              className="flex items-center h-[34px] px-3 rounded-[7px] border transition-colors disabled:opacity-30"
+              style={{ borderColor: COLORS.border, color: COLORS.text.body }}
+            >→</button>
           </div>
         </div>
 
-        {/* Desktop Table — hidden on mobile */}
-        <div className="overflow-x-auto hidden md:block">
-          <table className="w-full text-left text-sm">
-            <thead className="text-white/40 uppercase tracking-wider text-xs font-medium force-satoshi" style={{ backgroundColor: COLORS.backgrounds.main }}>
-              <tr>
-                <th className="px-6 py-4">Ref ID</th>
-                <th className="px-6 py-4">Created</th>
-                <th className="px-6 py-4">Subject / Issue</th>
-                <th className="px-6 py-4">Requester Details</th>
-                <th className="px-6 py-4">Closed Date</th>
-                <th className="px-6 py-4">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading ? (
-                [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
-              ) : paginatedTickets.map(ticket => (
-                <AdminTicketRow
-                  key={ticket.id}
-                  ticket={ticket}
-                  isUpdating={updatingId === ticket.id}
-                  onEmailClick={() => setEmailTicket(ticket)}
-                  onViewClick={() => setViewTicket(ticket)}
-                  onDeleteClick={() => setDeleteTicket(ticket)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile Card List — visible only on mobile */}
+        {/* Mobile Card List */}
         <div className="md:hidden p-4 space-y-3">
           {loading ? (
             [...Array(3)].map((_, i) => <SkeletonCard key={i} />)
@@ -695,49 +944,18 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
               key={ticket.id}
               ticket={ticket}
               index={idx}
+              onViewClick={() => handleRowClick(ticket)}
               onEmailClick={() => setEmailTicket(ticket)}
-              onViewClick={() => setViewTicket(ticket)}
               onDeleteClick={() => setDeleteTicket(ticket)}
             />
           ))}
+          {filtered.length === 0 && !loading && !fetchError && (
+            <EmptyState hasSearch={!!searchQuery.trim()} />
+          )}
         </div>
-
-        {/* Empty State */}
-        {filtered.length === 0 && !loading && !fetchError && (
-          <EmptyState hasSearch={!!searchQuery.trim()} />
-        )}
-
-        {/* Pagination */}
-        {!loading && filtered.length > TICKETS_PER_PAGE && (
-          <div className="p-4 border-t flex items-center justify-between" style={{ borderColor: COLORS.border }}>
-            <p className="text-xs text-white/40 force-satoshi">
-              Showing {(currentPage - 1) * TICKETS_PER_PAGE + 1}–{Math.min(currentPage * TICKETS_PER_PAGE, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(p => p - 1)}
-                className="p-2 rounded-lg hover:bg-white/5 disabled:opacity-20 text-white transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-white/60 force-satoshi min-w-[60px] text-center">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(p => p + 1)}
-                className="p-2 rounded-lg hover:bg-white/5 disabled:opacity-20 text-white transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Modals */}
-      
       <NewTicketModal 
         isOpen={newTicketOpen} 
         onClose={() => setNewTicketOpen(false)} 
@@ -745,28 +963,55 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
         isAuthenticated={isAuthenticated} 
       />
       {emailTicket && <EmailModal ticket={emailTicket} onClose={() => setEmailTicket(null)} setToast={setToast} onEmailSent={handleEmailSent} />}
-      {viewTicket && (
-        <TicketDetailModal
-          ticket={viewTicket}
-          emails={getTicketEmails(viewTicket)}
-          onClose={() => setViewTicket(null)}
-          onStatusChange={handleStatusChange}
-          isUpdating={updatingId === viewTicket.id}
-          onEmailClick={() => {
-            const latest = tickets.find(t => t.id === viewTicket.id) || viewTicket;
-            setViewTicket(null);
-            setTimeout(() => setEmailTicket(latest), 50);
-          }}
-        />
-      )}
       {deleteTicket && <DeleteModal isAuthenticated={isAuthenticated} ticket={deleteTicket} setTickets={setTickets} onClose={() => setDeleteTicket(null)} setToast={setToast} />}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* EMPTY STATE                                                                 */
+/* QUEUE STAT                                                                  */
 /* -------------------------------------------------------------------------- */
+
+
+
+
+/* -------------------------------------------------------------------------- */
+/* SKELETON ROW                                                               */
+/* -------------------------------------------------------------------------- */
+
+
+function SkeletonRow() {
+  return (
+    <tr className="animate-pulse border-b border-white/5">
+      <td className="px-6 py-4"><div className="h-4 w-12 bg-white/10 rounded"></div></td>
+      <td className="px-6 py-4">
+        <div className="h-4 w-32 bg-white/10 rounded mb-2"></div>
+        <div className="h-3 w-20 bg-white/5 rounded"></div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-white/10"></div>
+          <div>
+            <div className="h-3 w-24 bg-white/10 rounded mb-1"></div>
+            <div className="h-2 w-32 bg-white/5 rounded"></div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4"><div className="h-6 w-20 bg-white/10 rounded"></div></td>
+      <td className="px-6 py-4 flex gap-2">
+        <div className="w-8 h-8 bg-white/10 rounded"></div>
+        <div className="w-8 h-8 bg-white/10 rounded"></div>
+        <div className="w-8 h-8 bg-white/10 rounded"></div>
+      </td>
+    </tr>
+  );
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* EMPTY STATE                                                                */
+/* -------------------------------------------------------------------------- */
+
 
 function EmptyState({ hasSearch }) {
   return (
@@ -786,9 +1031,11 @@ function EmptyState({ hasSearch }) {
   );
 }
 
+
 /* -------------------------------------------------------------------------- */
-/* MOBILE TICKET CARD                                                          */
+/* MOBILE TICKET CARD                                                         */
 /* -------------------------------------------------------------------------- */
+
 
 function MobileTicketCard({ ticket, index, onEmailClick, onViewClick, onDeleteClick }) {
   const displayTitle = ticket.subject || ticket.problemType || "No Subject";
@@ -851,9 +1098,11 @@ function SkeletonCard() {
   );
 }
 
+
 /* -------------------------------------------------------------------------- */
-/* DELETE MODAL                                                                */
+/* DELETE MODAL                                                               */
 /* -------------------------------------------------------------------------- */
+
 
 function DeleteModal({ isAuthenticated, ticket, onClose, setTickets, setToast }) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -919,220 +1168,376 @@ function DeleteModal({ isAuthenticated, ticket, onClose, setTickets, setToast })
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* TICKET DETAIL MODAL                                                         */
-/* -------------------------------------------------------------------------- */
 
-function TicketDetailModal({ ticket, emails, onClose, onStatusChange, isUpdating, onEmailClick }) {
-  const formatDate = (dateInput) => {
-    if (dateInput?.toMillis) return new Date(dateInput.toMillis()).toLocaleString();
-    if (typeof dateInput === 'string') return new Date(dateInput).toLocaleString();
-    if (dateInput instanceof Date) return dateInput.toLocaleString();
-    return 'Unknown Date';
+
+
+/* -------------------------------------------------------------------------- */
+/* ADMIN TICKET ROW                                                           */
+/* -------------------------------------------------------------------------- */
+function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns = { reference: true, subject: true, requester: true, machine: true, requestType: true, status: true } }) {
+  const formatShortDate = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' · ' +
+      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const dateStr = formatDate(ticket.createdAt);
-  const closedStr = ticket.closedAt ? formatDate(ticket.closedAt) : null;
-  const subject = ticket.subject || ticket.problemType || "No Subject";
-  const requestType = ticket.requestType || "General Support";
-  const accountType = ticket.accountType || "User";
+  const channel = ticket.channel || 'Website form';
+  const mediaCount = ticket.media?.length || 0;
+  const mediaLabel = mediaCount > 0 ? `${mediaCount === 1 ? (ticket.media[0]?.type?.startsWith('image') ? 'Photo' : 'File') : 'Files'} · ${mediaCount} file${mediaCount > 1 ? 's' : ''}` : null;
+
+  const statusColor = ticket.status === 'OPEN' ? COLORS.primary[500]
+    : ticket.status === 'IN_PROGRESS' ? COLORS.secondary[500]
+    : COLORS.text.disabled;
+
+  const statusLabel = ticket.status === 'OPEN' ? 'Open'
+    : ticket.status === 'IN_PROGRESS' ? 'In Progress'
+    : 'Closed';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden" style={{ backgroundColor: COLORS.backgrounds.main, borderColor: COLORS.border }} onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b flex justify-between items-center" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono opacity-40 px-2 py-0.5 rounded bg-white/5 force-satoshi" style={{ color: COLORS.text.heading }}>{ticket.ticketId}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider border px-2 py-0.5 rounded force-satoshi" style={{ color: COLORS.primary[500], borderColor: `${COLORS.primary[500]}33` }}>{requestType}</span>
-            </div>
-            <h3 className="text-xl font-bold ticket-main-heading" style={{ color: COLORS.text.heading }}>{subject}</h3>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 opacity-50 text-white" /></button>
-        </div>
+    <div
+      className="flex items-center h-[80px] px-4 cursor-pointer transition-colors hover:bg-white/[0.02]"
+      style={{ backgroundColor: isSelected ? COLORS.activeBg : 'transparent' }}
+      onClick={onClick}
+    >
+      {/* REFERENCE / CREATED */}
+      {visibleColumns.reference && <div className="w-[160px] shrink-0 flex flex-col">
+        <span className="text-xs font-medium" style={{ color: COLORS.text.heading }}>#{ticket.ticketId}</span>
+        <span className="text-[11px]" style={{ color: COLORS.text.body }}>{formatShortDate(ticket.createdAt)}</span>
+        <span className="text-[11px]" style={{ color: channel === 'Website form' && isSelected ? COLORS.primary[500] : COLORS.text.body }}>{channel}</span>
+      </div>}
 
-        <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-          {/* Status Bar */}
-          <div className="flex flex-wrap items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
-            {/* Status dropdown */}
-            <div className="relative">
-              {isUpdating && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-md z-10">
-                  <RefreshCw className="w-3 h-3 text-white animate-spin" />
-                </div>
-              )}
-              <select
-                value={ticket.status}
-                onChange={(e) => onStatusChange && onStatusChange(ticket.id, e.target.value)}
-                className={`border rounded-md px-3 py-1.5 text-xs font-bold uppercase outline-none cursor-pointer force-satoshi ${ticket.status === 'CLOSED' ? 'border-[#35B814]/50 text-[#35B814] bg-[#35B814]/10' :
-                  ticket.status === 'IN_PROGRESS' ? 'border-yellow-500/50 text-yellow-500 bg-yellow-500/10' :
-                    'border-white/20 text-white/70 bg-white/5'
-                  }`}
-              >
-                <option value="OPEN" className="bg-[#262626] text-white">OPEN</option>
-                <option value="IN_PROGRESS" className="bg-[#262626] text-white">IN_PROGRESS</option>
-                <option value="CLOSED" className="bg-[#262626] text-white">CLOSED</option>
-              </select>
-            </div>
-            <div className="h-4 w-[1px] bg-white/10"></div>
-            <div className="flex items-center gap-2 text-xs text-white/60 force-satoshi">
-              <Clock className="w-4 h-4" />
-              {dateStr}
-            </div>
-            <div className="h-4 w-[1px] bg-white/10"></div>
-            <div className="flex items-center gap-2 text-xs text-white/60 force-satoshi">
-              <User className="w-4 h-4" />
-              {accountType} Account
-            </div>
-            {closedStr && (
-              <>
-                <div className="h-4 w-[1px] bg-white/10"></div>
-                <div className="flex items-center gap-2 text-xs text-[#35B814] force-satoshi">
-                  <Clock className="w-4 h-4" />
-                  Closed: {closedStr}
-                </div>
-              </>
-            )}
-          </div>
+      {/* SUBJECT / DESCRIPTION */}
+      {visibleColumns.subject && <div className="flex-1 min-w-[200px] flex flex-col">
+        <span className="text-[13px] font-medium truncate" style={{ color: COLORS.text.heading }}>{ticket.subject || 'No Subject'}</span>
+        <span className="text-[11px] truncate" style={{ color: COLORS.text.body }}>{ticket.description || 'No description'}</span>
+        {mediaLabel
+          ? <span className="text-[11px]" style={{ color: COLORS.text.body }}>{mediaLabel}</span>
+          : <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>No media</span>
+        }
+      </div>}
 
-          {/* Details Grid */}
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3 flex items-center gap-2 force-satoshi" style={{ color: COLORS.text.heading }}>
-                <User className="w-4 h-4" /> Contact Information
-              </h4>
-              <div className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/5">
-                <DetailRow label="Full Name" value={ticket.contactPerson} icon={User} />
-                <DetailRow label="Email Address" value={ticket.email} icon={Mail} />
-                <DetailRow label="Phone Number" value={ticket.phone || "Not Provided"} icon={Phone} />
-                <DetailRow label="Account Type" value={accountType} icon={Briefcase} />
-              </div>
-            </div>
+      {/* REQUESTER / ACCOUNT */}
+      {visibleColumns.requester && <div className="w-[220px] shrink-0 flex flex-col">
+        <span className="text-[13px] font-medium" style={{ color: COLORS.text.heading }}>{ticket.contactPerson || 'Unknown User'}</span>
+        <span className="text-[11px] truncate" style={{ color: COLORS.text.body }}>{ticket.email || ticket.phone || '-'}</span>
+        <span className="text-[11px]" style={{ color: !ticket.accountType || ticket.accountType === 'Customer' ? COLORS.text.body : COLORS.secondary[500] }}>
+          {ticket.accountType || 'Customer'}{ticket.accountType === 'Customer' ? ' / Guest' : ''}
+        </span>
+      </div>}
 
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3 flex items-center gap-2 force-satoshi" style={{ color: COLORS.text.heading }}>
-                <MapPin className="w-4 h-4" /> Request Context
-              </h4>
-              <div className="space-y-4 bg-white/5 p-4 rounded-xl border border-white/5">
-                <DetailRow label="Request Type" value={requestType} icon={FileText} />
-                <DetailRow label="Machine ID / Location" value={ticket.location || ticket.machineId || "N/A"} icon={MapPin} />
-              </div>
-            </div>
-          </div>
+      {/* MACHINE / LOCATION */}
+      {visibleColumns.machine && <div className="w-[180px] shrink-0 flex flex-col">
+        {ticket.machineId && ticket.machineId !== 'N/A' && ticket.machineId !== '' ? (
+          <span className="text-xs" style={{ color: COLORS.text.heading }}>{ticket.machineId}</span>
+        ) : (
+          <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>-</span>
+        )}
+        
+        {ticket.location && ticket.location !== 'N/A' && ticket.location !== '' ? (
+          <span className="text-[11px]" style={{ color: COLORS.text.body }}>{ticket.location}</span>
+        ) : (
+          <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>-</span>
+        )}
+      </div>}
 
-          {/* Description */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3 flex items-center gap-2 force-satoshi" style={{ color: COLORS.text.heading }}>
-              <MessageSquare className="w-4 h-4" /> Message / Description
-            </h4>
-            <p className="text-white/90 leading-relaxed p-6 rounded-xl border border-white/5 text-sm whitespace-pre-wrap force-satoshi" style={{ backgroundColor: COLORS.backgrounds.card }}>
-              {ticket.description || "No description provided."}
-            </p>
-          </div>
+      {/* REQUEST TYPE */}
+      {visibleColumns.requestType && <div className="w-[180px] shrink-0">
+        <span className="text-xs" style={{ color: COLORS.text.heading }}>{ticket.requestType}</span>
+      </div>}
 
-          {/* Media / Attachments */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-3 flex items-center gap-2 force-satoshi" style={{ color: COLORS.text.heading }}>
-              <Paperclip className="w-4 h-4" /> Attached Media
-            </h4>
-            {ticket.media && ticket.media.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {ticket.media.map((item, idx) => (
-                  <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="group relative aspect-video bg-black rounded-lg overflow-hidden border border-white/10 hover:border-[#7FEE64] transition-all">
-                    {item.type && item.type.startsWith('image') ? (
-                      <img src={item.url} alt="Attachment" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-white/50"><FileText className="w-8 h-8" /></div>
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/50 transition-opacity">
-                      <span className="text-xs font-bold text-white bg-black/80 px-2 py-1 rounded flex items-center gap-1 force-satoshi">
-                        <Eye className="w-3 h-3" /> View
-                      </span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center border border-dashed border-white/10 rounded-xl text-white/30 text-sm force-satoshi">
-                No media attached to this request.
-              </div>
-            )}
-          </div>
-
-          {/* Email History */}
-          {emails && emails.length > 0 && (
-            <div className="pt-4 border-t border-white/10">
-              <h4 className="text-xs font-bold uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2 force-satoshi" style={{ color: COLORS.text.heading }}>
-                <Mail className="w-4 h-4" /> Email History ({emails.length})
-              </h4>
-              <div className="space-y-4">
-                {emails.map((email) => {
-                  const isOutbound = email.direction === 'sent' || email.senderType === 'Admin';
-                  return (
-                  <div key={email.id} className={`p-4 rounded-xl border ${isOutbound ? 'border-[#7FEE64]/15 bg-[#7FEE64]/5' : 'border-white/5 bg-white/5'}`}
-                    style={{ borderLeftWidth: 3, borderLeftColor: isOutbound ? COLORS.primary[500] : '#60A5FA' }}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-white force-satoshi">{email.subject}</p>
-                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded force-satoshi ${isOutbound ? 'bg-[#7FEE64]/15 text-[#7FEE64]' : 'bg-blue-500/15 text-blue-400'}`}>
-                            {isOutbound ? '↑ Sent' : '↓ Received'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-white/50 force-satoshi mt-0.5">
-                          {isOutbound ? 'From' : 'From'}: {email.senderName} ({email.senderType})
-                        </p>
-                      </div>
-                      <span className="text-xs text-white/40 force-satoshi flex items-center gap-1 flex-shrink-0">
-                        <Clock className="w-3 h-3" />
-                        {new Date(email.sentAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="mt-3 text-sm text-white/80 whitespace-pre-wrap force-satoshi bg-black/20 p-3 rounded-lg">
-                      {email.message}
-                    </div>
-                    {email.attachments && email.attachments.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-white/5 space-y-1.5">
-                        <p className="text-xs font-bold text-white/40 force-satoshi mb-2">Attachments ({email.attachments.length})</p>
-                        {email.attachments.map((att, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs text-white/60 bg-black/20 px-3 py-1.5 rounded-md inline-flex w-auto mt-1 mr-2">
-                            <Paperclip className="w-3 h-3" />
-                            {att.name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-6 border-t flex justify-between items-center" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
-          <button
-            onClick={() => onEmailClick && onEmailClick()}
-            className="px-5 py-2 text-sm font-bold rounded-lg border border-[#7FEE64]/30 text-[#7FEE64] hover:bg-[#7FEE64]/10 transition-colors force-satoshi flex items-center gap-2"
-          >
-            <Mail className="w-4 h-4" /> Send Email
-          </button>
-          <button onClick={onClose} className="px-6 py-2 bg-white text-black font-bold rounded-lg hover:bg-white/90 transition-colors force-satoshi">
-            Close View
-          </button>
-        </div>
-      </div>
+      {/* STATUS */}
+      {visibleColumns.status && <div className="w-[120px] shrink-0">
+        <span className="text-xs font-medium" style={{ color: statusColor }}>{statusLabel}</span>
+      </div>}
     </div>
   );
 }
 
-function DetailRow({ label, value, icon: Icon }) {
+
+/* -------------------------------------------------------------------------- */
+/* TICKET DETAIL MODAL                                                        */
+/* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* TICKET DETAIL PAGE (Full-Page Conversation View)                           */
+/* -------------------------------------------------------------------------- */
+
+function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, onEmailSent, setToast }) {
+  const [replyMode, setReplyMode] = useState('email'); // 'email' or 'internal'
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const channel = ticket.channel || 'Website form';
+  
+  const formatDate = (dateInput) => {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' CEST';
+  };
+
+  const handleSendReply = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+
+    if (replyMode === 'email') {
+      let webhookSuccess = false;
+      try {
+        await triggerN8nEmail(ticket, 'REPLY_SENT', message);
+        webhookSuccess = true;
+      } catch (err) {
+        console.warn('n8n webhook not available:', err.message);
+      }
+      
+      const newEmail = {
+        id: Math.random().toString(36).substring(2, 9),
+        subject: `Re: ${ticket.subject || ticket.ticketId}`,
+        message,
+        attachments: [],
+        sentAt: new Date().toISOString(),
+        senderType: 'Admin',
+        senderName: 'NAF Support',
+        direction: 'sent',
+      };
+      
+      onEmailSent(ticket.id, newEmail);
+      setToast({ title: "Email Sent", message: webhookSuccess ? `Reply sent to ${ticket.email}` : 'Reply saved locally (webhook unavailable)' });
+    } else {
+      // Internal note
+      const newEmail = {
+        id: Math.random().toString(36).substring(2, 9),
+        subject: 'Internal Note',
+        message,
+        attachments: [],
+        sentAt: new Date().toISOString(),
+        senderType: 'Admin',
+        senderName: 'Internal Note',
+        direction: 'sent',
+      };
+      onEmailSent(ticket.id, newEmail);
+      setToast({ title: "Note Added", message: "Internal note saved to conversation." });
+    }
+    
+    setMessage('');
+    setSending(false);
+  };
+
+  const statusColor = ticket.status === 'OPEN' ? '#61ED54'
+    : ticket.status === 'IN_PROGRESS' ? COLORS.secondary[500]
+    : COLORS.text.disabled;
+  const statusBg = ticket.status === 'OPEN' ? '#122614'
+    : ticket.status === 'IN_PROGRESS' ? '#2A1B0A'
+    : '#111315';
+  const statusBorder = ticket.status === 'OPEN' ? '#245229'
+    : ticket.status === 'IN_PROGRESS' ? '#4A3215'
+    : COLORS.border;
+  const statusLabel = ticket.status === 'OPEN' ? 'Open'
+    : ticket.status === 'IN_PROGRESS' ? 'In Progress'
+    : 'Closed';
+
   return (
-    <div className="flex items-start gap-3">
-      {Icon && <div className="mt-0.5 w-4 h-4 flex items-center justify-center opacity-30 text-white"><Icon className="w-3.5 h-3.5" /></div>}
-      <div className="flex flex-col">
-        <span className="text-[10px] uppercase opacity-40 leading-none mb-1 force-satoshi" style={{ color: COLORS.text.heading }}>{label}</span>
-        <span className="text-sm font-medium force-satoshi" style={{ color: COLORS.text.body }}>{value}</span>
+    <div className="flex flex-col h-full bg-[#09090A] fixed inset-0 z-40 overflow-hidden" style={{ minHeight: '100vh', fontFamily: "'Satoshi', sans-serif" }}>
+      {/* Header */}
+      <div className="flex justify-between items-center px-6 h-[70px] shrink-0 border-b border-[#212429] bg-[#09090A]">
+        <div className="flex items-center gap-3.5">
+          <button onClick={onBack} className="px-3 py-2 rounded-[10px] border border-[#282C2F] bg-[#111315] hover:bg-white/5 transition-colors">
+            <span className="text-xs font-medium text-[#B2B8C2]">← Back</span>
+          </button>
+          <div className="flex flex-col gap-1">
+            <span className="text-[20px] font-semibold text-[#EBEDF2] font-heading">#{ticket.ticketId} · {ticket.subject || ticket.problemType || 'No Subject'}</span>
+            <span className="text-[11px] text-[#737885]">{channel} · {ticket.contactPerson} · Created {formatDate(ticket.createdAt)}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {isUpdating && <RefreshCw className="w-4 h-4 text-white animate-spin mr-2" />}
+          <div className="px-3 py-2 rounded-[10px] border" style={{ backgroundColor: statusBg, borderColor: statusBorder }}>
+            <span className="text-[11px] font-medium" style={{ color: statusColor }}>{statusLabel}</span>
+          </div>
+          
+          {ticket.status === 'OPEN' && (
+            <>
+              <button onClick={() => onStatusChange(ticket.id, 'IN_PROGRESS')} disabled={isUpdating} className="h-[34px] px-3 rounded-[7px] border border-[#345135] bg-[#78EF63] hover:opacity-90 transition-opacity">
+                <span className="text-xs font-medium text-[#0C0D0E]">Start progress</span>
+              </button>
+              <button onClick={() => onStatusChange(ticket.id, 'CLOSED')} disabled={isUpdating} className="px-3 py-2 rounded-[10px] border border-[#572629] bg-[#291214] hover:opacity-90 transition-opacity">
+                <span className="text-[11px] font-medium text-[#F58C91]">Close ticket</span>
+              </button>
+            </>
+          )}
+          {ticket.status === 'IN_PROGRESS' && (
+            <button onClick={() => onStatusChange(ticket.id, 'CLOSED')} disabled={isUpdating} className="px-3 py-2 rounded-[10px] border border-[#572629] bg-[#291214] hover:opacity-90 transition-opacity">
+              <span className="text-[11px] font-medium text-[#F58C91]">Close ticket</span>
+            </button>
+          )}
+          {ticket.status === 'CLOSED' && (
+            <button onClick={() => onStatusChange(ticket.id, 'OPEN')} disabled={isUpdating} className="h-[34px] px-3 rounded-[7px] border border-[#345135] bg-[#78EF63] hover:opacity-90 transition-opacity">
+              <span className="text-xs font-medium text-[#0C0D0E]">Reopen ticket</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex p-6 gap-5 h-[calc(100vh-70px)] overflow-hidden">
+        {/* Left Sidebar */}
+        <div className="w-[340px] shrink-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-6 pr-2">
+          
+          {/* Ticket Details */}
+          <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
+            <span className="text-xs font-semibold text-[#D1D6DE]">Ticket details</span>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Source</span>
+              <span className="text-[10px] font-medium text-[#52D170]">{channel}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Request type</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.requestType || 'General'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Account type</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.accountType || 'Customer / Guest'}</span>
+            </div>
+          </div>
+
+          {/* Requester */}
+          <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
+            <span className="text-xs font-semibold text-[#D1D6DE]">Requester</span>
+            <span className="text-[13px] font-semibold text-[#E8EBF0]">{ticket.contactPerson || 'Unknown User'}</span>
+            {ticket.email && <span className="text-[10px] text-[#7A808C]">{ticket.email}</span>}
+            {ticket.phone && <span className="text-[10px] text-[#7A808C]">{ticket.phone}</span>}
+            <span className="text-[11px] text-[#A0A8AD]">{ticket.accountType || 'Customer / Guest'}</span>
+          </div>
+
+          {/* Related Context */}
+          <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
+            <span className="text-xs font-semibold text-[#D1D6DE]">Related context</span>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Transaction</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Payment</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Amount</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Machine</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.machineId || ticket.location || '—'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Location</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.location || '—'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-[#6B707D]">Machine status</span>
+              <span className="text-[10px] font-medium text-[#61E557]">Online</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Conversation Workspace */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-[1200px]">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-[14px] font-semibold text-[#E5E8ED]">Conversation</span>
+            <span className="text-[10px] text-[#6E7380]">{channel === 'WhatsApp' ? 'WhatsApp → WhatsApp replies' : `${channel} → Email replies`}</span>
+          </div>
+
+          {/* Timeline */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 pr-2 pb-4">
+            {emails?.map((msg, i) => {
+              const isCustomer = msg.direction === 'received' && msg.senderType !== 'System';
+              const isSystem = msg.senderType === 'System';
+              const isInternal = msg.subject === 'Internal Note';
+              const isServiceTeam = (msg.senderName || '').toLowerCase().includes('service');
+              
+              let msgStyle = { border: 'border-[#212429]', bg: 'bg-[#0C0C0E]', metaColor: 'text-[#87ABE5]' };
+              if (isCustomer) msgStyle = { border: 'border-[#1C381F]', bg: 'bg-[#0E180F]', metaColor: 'text-[#63E070]' };
+              if (isInternal) msgStyle = { border: 'border-[#45361A]', bg: 'bg-[#1B1409]', metaColor: 'text-[#F5B24F]' };
+              if (isServiceTeam) msgStyle = { border: 'border-[#2E2940]', bg: 'bg-[#13111A]', metaColor: 'text-[#AB99F2]' };
+
+              const timeStr = new Date(msg.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+              return (
+                <div key={i} className={`p-3.5 flex flex-col gap-2 rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
+                  <div className="flex justify-between items-start">
+                    <span className={`text-[10px] font-medium ${msgStyle.metaColor}`}>
+                      {isInternal ? 'Internal note' : isServiceTeam ? `${msg.senderName} · Internal` : `${msg.senderName} · ${isCustomer ? channel : 'Email'}`}
+                    </span>
+                    <span className="text-[10px] text-[#666B78]">{timeStr}</span>
+                  </div>
+                  <div className="text-[12px] text-[#C4C9D1] whitespace-pre-wrap">{msg.message}</div>
+                  
+                  {/* Attachments */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-1">
+                      {msg.attachments.map((att, j) => (
+                        <span key={j} className="text-[11px] text-[#78EF63] cursor-pointer hover:underline">
+                          {att.name} · {att.type?.startsWith('image') ? 'Image' : 'File'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Reply Composer */}
+          <div className="mt-3 p-3.5 flex flex-col gap-3 rounded-[14px] border border-[#212429] bg-[#0B0B0D] shrink-0">
+            {ticket.status === 'CLOSED' ? (
+              <>
+                <div className="p-3.5 rounded-[10px] bg-[#080809]">
+                  <span className="text-[11px] text-[#575C66]">This ticket is closed. Reopen it to reply.</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                <span className="text-[9px] text-[#575C66]">{channel === 'WhatsApp' ? `To: ${ticket.phone} · Replies stay on WhatsApp.` : `To: ${ticket.email} · Replies stay on email.`}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <button onClick={() => setReplyMode('email')} className={`px-3 py-1.5 rounded-[9px] border text-[10px] font-medium transition-colors ${replyMode === 'email' ? 'bg-[#142917] border-[#26522B] text-[#66EB5C]' : 'bg-[#0E0F10] border-[#24262B] text-[#8F94A1]'}`}>
+                    {channel === 'WhatsApp' ? 'Reply by WhatsApp' : 'Reply by email'}
+                  </button>
+                  <button onClick={() => setReplyMode('internal')} className={`px-3 py-1.5 rounded-[9px] border text-[10px] font-medium transition-colors ${replyMode === 'internal' ? 'bg-[#2A1E0D] border-[#4A3215] text-[#F5B24F]' : 'bg-[#0E0F10] border-[#24262B] text-[#8F94A1]'}`}>
+                    Internal note
+                  </button>
+                </div>
+                
+                <div className="rounded-[10px] bg-[#080809] border border-transparent focus-within:border-[#212429] transition-colors">
+                  <textarea 
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder={replyMode === 'email' ? `Write a reply to ${ticket.contactPerson}…` : "Write an internal note…"}
+                    className="w-full bg-transparent p-3.5 text-[12px] text-[#C4C9D1] outline-none resize-none min-h-[80px]"
+                  />
+                </div>
+                
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[9px] text-[#575C66]">
+                    {replyMode === 'email' 
+                      ? (channel === 'WhatsApp' ? `To: ${ticket.phone} · Replies stay on WhatsApp.` : `To: ${ticket.email} · Replies stay on email.`)
+                      : 'Notes are only visible to staff.'}
+                  </span>
+                  <button 
+                    onClick={handleSendReply}
+                    disabled={!message.trim() || sending}
+                    className="px-3.5 py-2 rounded-[9px] bg-[#47EB3D] disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                  >
+                    {sending && <RefreshCw className="w-3 h-3 text-[#050A05] animate-spin" />}
+                    <span className="text-[10px] font-semibold text-[#050A05]">{replyMode === 'email' ? 'Send reply' : 'Save note'}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1141,6 +1546,14 @@ function DetailRow({ label, value, icon: Icon }) {
 /* -------------------------------------------------------------------------- */
 /* EMAIL MODAL                                                                 */
 /* -------------------------------------------------------------------------- */
+
+
+
+
+/* -------------------------------------------------------------------------- */
+/* EMAIL MODAL                                                                */
+/* -------------------------------------------------------------------------- */
+
 
 function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
   const [subject, setSubject] = useState(`Re: ${ticket.subject || ticket.ticketId}`);
@@ -1301,149 +1714,12 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* KPI CARD                                                                    */
-/* -------------------------------------------------------------------------- */
 
-function KPICard({ label, value, color }) {
-  const animatedValue = useCountUp(value);
 
-  return (
-    <div className="p-4 md:p-6 rounded-2xl border relative overflow-hidden kpi-animate" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
-      <div className="absolute top-0 right-0 p-4 opacity-10 text-white"><LayoutDashboard className="w-12 h-12" /></div>
-      <p className="text-sm font-medium opacity-50 mb-1 force-satoshi" style={{ color: COLORS.text.heading }}>{label}</p>
-      <h3 className="text-3xl md:text-4xl font-bold font-heading" style={{ color }}>{animatedValue}</h3>
-    </div>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
-/* SKELETON ROW                                                                */
+/* NEW TICKET MODAL                                                           */
 /* -------------------------------------------------------------------------- */
-
-function SkeletonRow() {
-  return (
-    <tr className="animate-pulse border-b border-white/5">
-      <td className="px-6 py-4"><div className="h-4 w-12 bg-white/10 rounded"></div></td>
-      <td className="px-6 py-4">
-        <div className="h-4 w-32 bg-white/10 rounded mb-2"></div>
-        <div className="h-3 w-20 bg-white/5 rounded"></div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/10"></div>
-          <div>
-            <div className="h-3 w-24 bg-white/10 rounded mb-1"></div>
-            <div className="h-2 w-32 bg-white/5 rounded"></div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4"><div className="h-6 w-20 bg-white/10 rounded"></div></td>
-      <td className="px-6 py-4 flex gap-2">
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-      </td>
-    </tr>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* ADMIN TICKET ROW                                                            */
-/* -------------------------------------------------------------------------- */
-
-function AdminTicketRow({ ticket, onEmailClick, onViewClick, onDeleteClick }) {
-  const displayTitle = ticket.subject || ticket.problemType || "No Subject";
-  const displaySubtitle = ticket.requestType || ticket.location || "General Request";
-
-  const formatDateTime = (dateInput) => {
-    if (!dateInput) return 'N/A';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return 'N/A';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + '\n' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
-
-  return (
-    <tr className="hover:bg-white/[0.02] transition-colors group">
-      <td className="px-6 py-4 font-mono text-xs opacity-60 text-white force-satoshi">{ticket.ticketId}</td>
-      <td className="px-6 py-4">
-        <div className="text-xs text-white/60 whitespace-pre-line force-satoshi">{formatDateTime(ticket.createdAt)}</div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="font-medium text-white truncate max-w-[200px] force-satoshi">{displayTitle}</div>
-        <div className="text-xs opacity-40 truncate max-w-[150px] uppercase tracking-wide text-white force-satoshi mt-0.5">{displaySubtitle}</div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white force-satoshi">
-            {ticket.contactPerson ? ticket.contactPerson.charAt(0).toUpperCase() : '?'}
-          </div>
-          <div>
-            <div className="text-sm text-white force-satoshi">{ticket.contactPerson}</div>
-            <div className="text-xs opacity-40 text-white force-satoshi">{ticket.email}</div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        {ticket.closedAt ? (
-          <div className="text-xs text-[#35B814] whitespace-pre-line force-satoshi font-medium">
-            {formatDateTime(ticket.closedAt)}
-          </div>
-        ) : (
-          <span className="text-xs text-white/20 force-satoshi">—</span>
-        )}
-      </td>
-      <td className="px-6 py-4 flex gap-2 items-center">
-        <button onClick={onViewClick} className="p-2 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors" title="View Details">
-          <Eye className="w-4 h-4" />
-        </button>
-        <button onClick={onEmailClick} className="p-2 hover:bg-[#7FEE64]/10 rounded text-white/40 hover:text-[#7FEE64] transition-colors" title="Send Email">
-          <Mail className="w-4 h-4" />
-        </button>
-        <button onClick={onDeleteClick} className="p-2 hover:bg-white/10 rounded text-white/20 hover:text-red-400 transition-colors" title="Delete">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-function DarkSelect({ name, value, onChange, placeholder, options, borderColor }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  const selectedLabel = options.find(o => (typeof o === 'string' ? o : o.value) === value);
-  const displayLabel = selectedLabel ? (typeof selectedLabel === 'string' ? selectedLabel : selectedLabel.label) : null;
-  return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)}
-        className="w-full h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-left flex items-center justify-between outline-none cursor-pointer"
-        style={{ borderColor: borderColor || '#24262B', color: displayLabel ? '#EFF2F0' : '#78828A' }}>
-        <span className="truncate">{displayLabel || placeholder}</span>
-        <span className="text-[10px] text-[#575C66] ml-2">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="absolute top-[44px] left-0 right-0 z-50 py-1 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40 max-h-[220px] overflow-y-auto">
-          {options.map(opt => {
-            const val = typeof opt === 'string' ? opt : opt.value;
-            const label = typeof opt === 'string' ? opt : opt.label;
-            return (
-              <button key={val} type="button" onClick={() => { onChange({ target: { name, value: val } }); setOpen(false); }}
-                className={`w-full text-left px-3 py-2.5 text-[13px] transition-colors ${value === val ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#C4C9D1] hover:bg-[#1A1C20]'}`}>
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
   const [channel, setChannel] = useState('Email');
   const [formData, setFormData] = useState({
@@ -1699,6 +1975,3 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
     </div>
   );
 }
-
-
-
