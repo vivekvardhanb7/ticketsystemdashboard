@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://staging-api.naf-cloudsystem.de/api/:path*"
+            "destination": "https://testing-api.naf-cloudsystem.de/api/:path*"
         }
     ]
 }

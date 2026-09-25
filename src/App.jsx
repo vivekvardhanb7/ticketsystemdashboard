@@ -23,11 +23,205 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  WifiOff
+  WifiOff,
+  Globe,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import logo from './assets/naf-logo-animated.gif';
 import LoginPage from './LoginPage';
 import { COLORS, getAuthHeaders, timeAgo } from './designTokens';
+
+const TICKETS_PER_PAGE = 10;
+const N8N_TICKET_EVENTS_URL = import.meta.env.VITE_N8N_TICKET_EVENTS_URL || 'https://n8n.naf-cloudsystem.de/webhook/ticket-events';
+const DISPLAY_TIME_ZONE = 'Europe/Berlin';
+
+function normalizeApiTimestamp(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+}
+
+function parseTicketDate(value) {
+  const date = new Date(normalizeApiTimestamp(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function ticketYear(value) {
+  const date = parseTicketDate(value);
+  if (!date) return new Date().getFullYear();
+  return Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    year: 'numeric'
+  }).format(date));
+}
+
+function formatTicketShortDate(value) {
+  const date = parseTicketDate(value);
+  if (!date) return '';
+  return date.toLocaleDateString('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: '2-digit',
+    month: 'short'
+  }) + ' · ' + date.toLocaleTimeString('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+function formatTicketDate(value) {
+  const date = parseTicketDate(value);
+  if (!date) return '';
+  const zone = new Intl.DateTimeFormat('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    timeZoneName: 'short'
+  }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || 'Germany time';
+  return date.toLocaleDateString('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }) + ', ' + date.toLocaleTimeString('en-GB', {
+    timeZone: DISPLAY_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }) + ` ${zone}`;
+}
+
+function getAttachmentPreviewUrl(attachment) {
+  if (!attachment) return '';
+  const directUrl = attachment.url || attachment.previewUrl || attachment.fileUrl || attachment.downloadUrl || attachment.path || attachment.filePath || '';
+  if (directUrl) return directUrl;
+
+  const rawData = attachment.data || attachment.base64 || attachment.content || '';
+  if (!rawData || typeof rawData !== 'string') return '';
+  if (rawData.startsWith('data:')) return rawData;
+  if (attachment.type?.startsWith('image')) return `data:${attachment.type};base64,${rawData}`;
+  return '';
+}
+
+function fileAttachmentMetadata(file) {
+  return {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    url: file.type?.startsWith('image/') ? URL.createObjectURL(file) : ''
+  };
+}
+
+const fileToBase64 = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve({
+    fileName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    data: String(reader.result || '').split(',')[1] || '',
+  });
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+let attachmentPreviewDbPromise;
+
+function openAttachmentPreviewDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  if (!attachmentPreviewDbPromise) {
+    attachmentPreviewDbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('naf-support-attachment-previews', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('previews', { keyPath: 'key' });
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+  return attachmentPreviewDbPromise;
+}
+
+async function persistAttachmentPreviews(ticketId, files) {
+  const imageFiles = (files || []).filter(file => file.type?.startsWith('image/'));
+  if (!ticketId || imageFiles.length === 0) return;
+
+  try {
+    const db = await openAttachmentPreviewDb();
+    if (!db) return;
+    const records = await Promise.all(imageFiles.map(async file => {
+      const encoded = await fileToBase64(file);
+      return {
+        key: `${ticketId}::${file.name}::${file.size}`,
+        ticketId: String(ticketId),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl: `data:${file.type};base64,${encoded.data}`
+      };
+    }));
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction('previews', 'readwrite');
+      const store = transaction.objectStore('previews');
+      records.forEach(record => store.put(record));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch (error) {
+    console.warn('Could not persist attachment preview:', error.message);
+  }
+}
+
+async function hydrateAttachmentPreviews(ticketId, history) {
+  if (!ticketId || !Array.isArray(history) || history.length === 0) return history;
+
+  try {
+    const db = await openAttachmentPreviewDb();
+    if (!db) return history;
+    const records = await new Promise((resolve, reject) => {
+      const request = db.transaction('previews', 'readonly').objectStore('previews').getAll();
+      request.onsuccess = () => resolve(request.result.filter(record => record.ticketId === String(ticketId)));
+      request.onerror = () => reject(request.error);
+    });
+    if (records.length === 0) return history;
+
+    return history.map(email => ({
+      ...email,
+      attachments: (email.attachments || []).map(attachment => {
+        const record = records.find(item => item.name === attachment.name && Number(item.size) === Number(attachment.size));
+        return record ? { ...attachment, type: attachment.type || record.type, url: record.dataUrl } : attachment;
+      })
+    }));
+  } catch (error) {
+    console.warn('Could not load attachment preview:', error.message);
+    return history;
+  }
+}
+
+async function notifyTicketEvent(ticket, eventType, extra = {}) {
+  const { message, attachments, ...eventFields } = extra;
+  const payload = {
+    eventType,
+    ticketStatus: eventFields.ticketStatus || ticket.status || 'OPEN',
+    to: ticket.email || '',
+    toName: ticket.contactPerson || ticket.fullName || '',
+    subject: eventFields.subject || ticket.subject || ticket.ticketId || '',
+    ticketId: ticket.id || '',
+    ticketRef: ticket.ticketId || ticket.ticketReference || ticket.id || '',
+    requestType: ticket.requestType || 'Support Request',
+    ...eventFields,
+  };
+
+  if (message) payload.message = message;
+  if (attachments?.length) {
+    payload.attachments = await Promise.all(attachments.map(fileToBase64));
+  }
+
+  const response = await fetch(N8N_TICKET_EVENTS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) throw new Error(`n8n returned ${response.status}`);
+  return true;
+}
 
 
 /* -------------------------------------------------------------------------- */
@@ -86,12 +280,20 @@ const REQUEST_TYPE_MAPPING = {
   "wallet": "NAF Wallet",
   "mobile_app": "Mobile App",
   "naf_cloud": "NAF Cloud System",
+  "naf.cloud": "NAF Cloud System",
+  "naf cloud": "NAF Cloud System",
+  "naf cloud system": "NAF Cloud System",
   "reservation": "Reservation / Pickup",
   "complaint": "Complaint",
   "feedback": "Feedback / Suggestion",
   "partnership": "Partnership / Business Support",
   "other": "Other"
 };
+
+function normalizeRequestType(value) {
+  const rawValue = String(value || '').trim();
+  return REQUEST_TYPE_MAPPING[rawValue.toLowerCase()] || rawValue || 'Other';
+}
 
 const ACCOUNT_TYPE_MAPPING = {
   "user": "Customer / Guest",
@@ -101,6 +303,13 @@ const ACCOUNT_TYPE_MAPPING = {
   "not_collected": "Not collected",
   "Not collected": "Not collected"
 };
+
+function normalizeChannel(value) {
+  const channel = String(value || '').toLowerCase();
+  if (channel.includes('whatsapp')) return 'WhatsApp';
+  if (channel.includes('email')) return 'Email';
+  return 'Website form';
+}
 
 /* -------------------------------------------------------------------------- */
 /* MAIN APP COMPONENT                                                         */
@@ -114,8 +323,10 @@ export default function App() {
   });
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [toast, setToast] = useState(null);
+  const refreshInFlight = useRef(false);
 
   const handleLogout = () => {
     localStorage.removeItem('authData');
@@ -134,27 +345,9 @@ export default function App() {
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
-      @font-face {
-        font-family: 'Power Grotesk';
-        src: url('powergrotesk-bold.otf') format('opentype');
-        font-weight: 700;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'Satoshi';
-        src: url('Satoshi-Regular.otf') format('opentype');
-        font-weight: 400;
-        font-style: normal;
-      }
-      @font-face {
-        font-family: 'Satoshi';
-        src: url('Satoshi-Medium.otf') format('opentype');
-        font-weight: 500;
-        font-style: normal;
-      }
       
       body {
-        font-family: 'Satoshi', sans-serif;
+        font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         background-color: ${COLORS.backgrounds.main};
         color: ${COLORS.text.body};
         margin: 0;
@@ -163,29 +356,17 @@ export default function App() {
         min-height: 100vh;
       }
       
-      h1, h2, h3, h4, .font-heading {
-        font-family: 'Power Grotesk', sans-serif;
-      }
-      .ticket-main-heading {
-        font-family: 'Power Grotesk', sans-serif;
-      }
+      h1, h2, h3, h4, .font-heading, .ticket-main-heading {
+        font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         color: ${COLORS.text.heading};
       }
 
-      .ticket-main-heading {
-        font-family: 'Power Grotesk', sans-serif;
-      }
-      .ticket-main-heading {
-        font-family: 'Power Grotesk', sans-serif;
-      }
-      }
-
       input, textarea, select, button, label, p, span, div {
-        font-family: 'Satoshi', sans-serif;
+        font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       }
 
       .force-satoshi {
-        font-family: 'Satoshi', sans-serif !important;
+        font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
       }
 
       .custom-scrollbar::-webkit-scrollbar { width: 8px; }
@@ -225,6 +406,9 @@ export default function App() {
 
   // Data Fetching from API
   const fetchTickets = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
     try {
       const headers = getAuthHeaders(isAuthenticated);
       const response = await fetch('/api/NAFWebsite/issues', { headers });
@@ -262,7 +446,9 @@ export default function App() {
         }
 
         // Ensure numeric ID generation is safe for string IDs
-        const year = new Date(item.submittedAt || item.createdDateTime || item.receivedDateTime || Date.now()).getFullYear();
+        const rawDate = item.submittedAt || item.createdDateTime || item.receivedDateTime || new Date().toISOString();
+        const createdAt = normalizeApiTimestamp(rawDate);
+        const year = ticketYear(createdAt);
         let numericId = 0;
         if (typeof item.id === 'number') {
            numericId = item.id;
@@ -278,9 +464,12 @@ export default function App() {
           if (locMatch) parsedLocation = locMatch[1].trim();
         }
 
-          const rawDate = item.submittedAt || item.createdDateTime || item.receivedDateTime || new Date().toISOString();
-          // API returns timestamps without timezone — treat as UTC
-          const createdAt = rawDate && !rawDate.endsWith('Z') && !rawDate.includes('+') ? rawDate + 'Z' : rawDate;
+          const rawChannel = String(item.source || item.channel || '').trim().toLowerCase();
+          const normalizedChannel = normalizeChannel(rawChannel);
+          const rawRequestType = String(item.requestType || '').trim().toLowerCase();
+          const isEmailIntake = normalizedChannel === 'Email'
+            && !rawChannel.includes('manual')
+            && (!rawRequestType || rawRequestType === 'email support');
 
           return {
             id: item.id?.toString() || Math.random().toString(36),
@@ -288,17 +477,19 @@ export default function App() {
             contactPerson: contactName || "Unknown User",
             email: typeof extractedEmail === 'string' ? extractedEmail : "",
             phone: item.phoneNumber || item.phone || "",
-            requestType: item.requestType || "Email Support",
+            requestType: isEmailIntake ? "Other" : normalizeRequestType(item.requestType),
             problemType: item.subject || "Issue",
             subject: item.subject || "No Subject",
             description: descText,
             location: parsedLocation || "N/A",
             machineId: "N/A",
-            accountType: item.accountType || "Customer",
+            accountType: isEmailIntake ? "Not collected" : (ACCOUNT_TYPE_MAPPING[item.accountType] || item.accountType || "Customer / Guest"),
             urgency: ["Normal"],
             status: String(item.status || "OPEN").toUpperCase(),
             createdAt,
-          media: (item.mediaFilePathsAsList || []).map(url => ({
+            channel: normalizedChannel,
+            source: normalizedChannel,
+            media: (item.mediaFilePathsAsList || []).map(url => ({
             url: url,
             type: url.match(/\.(jpg|jpeg|png|gif)$/i) ? 'image/jpeg' : 'application/octet-stream',
             name: url.split('/').pop() || 'attachment'
@@ -323,6 +514,8 @@ export default function App() {
       setFetchError(error.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      refreshInFlight.current = false;
     }
   }, [isAuthenticated]);
 
@@ -345,6 +538,7 @@ export default function App() {
           isAuthenticated={isAuthenticated}
           tickets={tickets}
           loading={loading}
+          refreshing={refreshing}
           fetchError={fetchError}
           onRetry={fetchTickets}
           setTickets={setTickets}
@@ -390,33 +584,81 @@ export default function App() {
 
 
 function AdminLayout({ children, onLogout }) {
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (langRef.current && !langRef.current.contains(event.target)) {
+        setLangOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="w-full flex flex-col min-h-screen">
-      <header className="h-16 border-b flex items-center px-4 md:px-8 sticky top-0 z-10 backdrop-blur relative justify-between md:justify-center" style={{ backgroundColor: 'rgba(29, 29, 31, 0.9)', borderColor: COLORS.border }}>
-        <div className="flex items-center gap-3 md:absolute md:left-1/2 md:-translate-x-1/2">
-          <img src={logo} alt="NAF Logo" className="w-8 h-8 object-contain" />
-          <span className="font-bold text-lg font-heading" style={{ color: COLORS.text.heading }}>NAF SUPPORT</span>
-        </div>
-        <div
-          onClick={onLogout}
-          className="flex items-center gap-3 ml-auto md:ml-0 md:absolute md:right-8 cursor-pointer hover:opacity-80 transition-opacity group"
-          title="Logout"
-        >
-          <span className="hidden md:block text-xs font-medium opacity-60 force-satoshi" style={{ color: COLORS.text.heading }}>Logout</span>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 group-hover:bg-red-500/20 transition-colors">
-            <User className="w-4 h-4 text-white/60 group-hover:text-red-400 transition-colors" />
+    <div className="w-full flex flex-col min-h-screen" style={{ backgroundColor: '#0C0D0E', alignItems: 'center' }}>
+      <div className="dashboard-shell" style={{ width: '100%', maxWidth: '1600px', padding: '20px 24px 24px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <header className="flex items-center justify-between gap-3 shrink-0" style={{ minHeight: '56px' }}>
+          {/* Left: Logo + Brand */}
+          <div className="flex items-center gap-[10px]">
+            <img src={logo} alt="NAF logo" className="h-7 w-7 rounded-full object-cover" />
+            <span className="font-semibold text-[17px]" style={{ color: '#EDF0F2' }}>NAF Support</span>
           </div>
-        </div>
-      </header>
-      <main className="flex-1 p-4 md:p-8">
-        {children}
-      </main>
+
+          {/* Right: Language + Admin */}
+          <div className="flex items-center gap-[10px]">
+            <div className="relative" ref={langRef}>
+              <button 
+                onClick={() => setLangOpen(!langOpen)}
+                className="flex items-center h-[38px] px-[12px] gap-[8px] rounded-[7px] border hover:opacity-80 transition-opacity"
+                style={{ borderColor: '#282C2F' }}
+              >
+                <Globe className="w-[16px] h-[16px]" style={{ color: '#A0A8AD' }} />
+                <span className="hidden sm:inline text-[13px] font-medium" style={{ color: '#A0A8AD' }}>Language: English</span>
+                <span className="text-[13px] font-medium" style={{ color: '#A0A8AD' }}>&darr;</span>
+              </button>
+
+              {langOpen && (
+                <div className="absolute right-0 top-12 w-[284px] rounded-[10px] p-4 flex flex-col gap-3 shadow-xl z-50" style={{ backgroundColor: '#111315', border: '1px solid #282C2F' }}>
+                  <div className="text-[14px] font-semibold" style={{ color: '#EDF0F2' }}>Interface language</div>
+                  
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-[7px] border cursor-default" style={{ backgroundColor: '#17241A', borderColor: '#345135' }}>
+                    <span className="text-[12px] font-medium" style={{ color: '#5CEB47' }}>English</span>
+                    <Check className="w-3.5 h-3.5 ml-auto" style={{ color: '#5CEB47' }} />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-[7px] border cursor-not-allowed opacity-55" style={{ borderColor: '#282C2F' }}>
+                    <span className="text-[12px] font-medium" style={{ color: '#A0A8AD' }}>Deutsch &middot; Coming later</span>
+                  </div>
+                  
+                  <div className="text-[11px]" style={{ color: '#6B707D' }}>
+                    German will be the default at launch.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div 
+              onClick={onLogout}
+              className="flex items-start px-[12px] py-[8px] gap-[6px] rounded-[8px] border cursor-pointer hover:bg-white/5 transition-colors" 
+              style={{ borderColor: '#26292E', backgroundColor: '#131416' }}
+              title="Click to logout"
+            >
+              <span className="text-[11px] font-medium" style={{ color: '#A8ADB8' }}>Admin</span>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex flex-col w-full">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
 
-
-/* -------------------------------------------------------------------------- */
 /* CUSTOM COMPONENTS                                                          */
 /* -------------------------------------------------------------------------- */
 
@@ -441,7 +683,7 @@ function PillButton({ label, active, onClick, count }) {
 
 
 
-function FilterSelect({ value, onChange, options, defaultLabel }) {
+function FilterSelect({ value, onChange, options, defaultLabel, menuWidth = 'w-[284px]' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -464,20 +706,24 @@ function FilterSelect({ value, onChange, options, defaultLabel }) {
         {active ? value : defaultLabel}
       </button>
       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-        <span className="text-[10px]" style={{ color: COLORS.text.disabled }}>{open ? '▼' : '▼'}</span>
+        <ChevronDown className="h-3 w-3" style={{ color: COLORS.text.disabled }} />
       </div>
       {open && (
-        <div className="absolute top-[38px] left-0 z-50 min-w-[180px] py-1 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40 max-h-[260px] overflow-y-auto">
-          <button onClick={() => { onChange('All'); setOpen(false); }}
-            className={`w-full text-left px-3 py-2 text-xs transition-colors ${value === 'All' ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#B8BDC7] hover:bg-[#1A1C20]'}`}>
-            {defaultLabel}
-          </button>
-          {options.map(opt => (
-            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full text-left px-3 py-2 text-xs transition-colors ${value === opt ? 'text-[#47EB3D] bg-[#142917]' : 'text-[#B8BDC7] hover:bg-[#1A1C20]'}`}>
-              {opt}
+        <div className={`absolute top-[38px] left-0 z-50 ${menuWidth} max-h-[420px] overflow-y-auto rounded-[10px] border border-[#282C2F] bg-[#111315] p-4 shadow-xl shadow-black/40`}>
+          <div className="flex flex-col gap-[10px]">
+            <div className="text-[15px] font-semibold leading-5 text-[#EFF2F0]">{defaultLabel}</div>
+            <div className="h-px w-full bg-[#282C2F]" />
+            <button onClick={() => { onChange('All'); setOpen(false); }}
+              className={`w-full text-left text-[13px] leading-5 transition-colors ${value === 'All' ? 'text-[#78EF63]' : 'text-[#EFF2F0] hover:text-[#78EF63]'}`}>
+              {defaultLabel === 'Request type' ? 'All request types' : 'All account types'}
             </button>
-          ))}
+            {options.map(opt => (
+              <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
+                className={`w-full text-left text-[13px] leading-5 transition-colors ${value === opt ? 'text-[#78EF63]' : 'text-[#EFF2F0] hover:text-[#78EF63]'}`}>
+                {opt}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -501,7 +747,7 @@ function DarkSelect({ name, value, onChange, placeholder, options, borderColor }
         className="w-full h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-left flex items-center justify-between outline-none cursor-pointer"
         style={{ borderColor: borderColor || '#24262B', color: displayLabel ? '#EFF2F0' : '#78828A' }}>
         <span className="truncate">{displayLabel || placeholder}</span>
-        <span className="text-[10px] text-[#575C66] ml-2">{open ? '▲' : '▼'}</span>
+        <ChevronDown className="h-3 w-3 text-[#575C66] ml-2" />
       </button>
       {open && (
         <div className="absolute top-[44px] left-0 right-0 z-50 py-1 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40 max-h-[220px] overflow-y-auto">
@@ -524,33 +770,29 @@ function DarkSelect({ name, value, onChange, placeholder, options, borderColor }
 
 function QueueStat({ label, value, subtitle, valueColor }) {
   return (
-    <div className="flex flex-col gap-1 p-4 rounded-xl border" style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
-      <span className="text-[13px] font-medium" style={{ color: COLORS.text.heading }}>{label}</span>
-      <span className="text-[28px] font-bold font-heading" style={{ color: valueColor || COLORS.text.heading }}>{value}</span>
-      {subtitle && <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>{subtitle}</span>}
+    <div className="flex min-w-0 flex-1 flex-col gap-[3px] p-4">
+      <span className="text-[12px] leading-5" style={{ color: COLORS.text.body }}>{label}</span>
+      <div className="flex h-8 items-center gap-3">
+        <span className="text-[26px] font-semibold leading-[35px]" style={{ color: valueColor || COLORS.text.heading }}>{value}</span>
+        {subtitle && <span className="text-[11px] leading-5" style={{ color: COLORS.text.body }}>{subtitle}</span>}
+      </div>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* ADMIN DASHBOARD                                                            */
-/* -------------------------------------------------------------------------- */
-
-
-const TICKETS_PER_PAGE = 10;
-
-function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry, setTickets, setToast }) {
+function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchError, onRetry, setTickets, setToast }) {
   const [filter, setFilter] = useState('All');
   const [channelFilter, setChannelFilter] = useState('All');
   const [reqTypeFilter, setReqTypeFilter] = useState('All');
   const [accTypeFilter, setAccTypeFilter] = useState('All');
   const [searchInput, setSearchInput] = useState('');
   const [visibleColumns, setVisibleColumns] = useState({
-    reference: true, subject: true, requester: true,
+    reference: true, source: true, subject: true, requester: true,
     machine: true, requestType: true, status: true,
   });
   const [columnsOpen, setColumnsOpen] = useState(false);
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const columnsRef = useRef(null);
   const searchQuery = useDebounce(searchInput, 300);
   const [currentPage, setCurrentPage] = useState(1);
@@ -560,6 +802,23 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
   const [deleteTicket, setDeleteTicket] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [emailHistory, setEmailHistory] = useState({});
+
+  const updateTicketUrl = useCallback((ticketId) => {
+    const params = new URLSearchParams(window.location.search);
+    if (ticketId) params.set('ticketId', String(ticketId));
+    else params.delete('ticketId');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
+
+  useEffect(() => {
+    if (viewTicket || loading || tickets.length === 0) return;
+    const ticketId = new URLSearchParams(window.location.search).get('ticketId');
+    if (!ticketId) return;
+    const restoredTicket = tickets.find(ticket => String(ticket.id) === ticketId || String(ticket.ticketId) === ticketId);
+    if (restoredTicket) setViewTicket(restoredTicket);
+    else updateTicketUrl(null);
+  }, [loading, tickets, viewTicket, updateTicketUrl]);
 
   useEffect(() => {
     const activeTicket = viewTicket || emailTicket;
@@ -575,7 +834,8 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
             ...email,
             direction: email.direction === 'outbound' ? 'sent' : 'received'
           }));
-          setEmailHistory(prev => ({ ...prev, [activeTicket.id]: mappedData }));
+          const hydratedData = await hydrateAttachmentPreviews(activeTicket.id, mappedData);
+          setEmailHistory(prev => ({ ...prev, [activeTicket.id]: hydratedData }));
         }
       } catch (err) {
         console.error("Failed to fetch email history", err);
@@ -596,8 +856,9 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
   const channelCounts = useMemo(() => {
     const counts = { 'Website form': 0, 'Email': 0, 'WhatsApp': 0 };
     tickets.forEach(t => {
-      const ch = t.channel || 'Website form';
-      if (counts[ch] !== undefined) counts[ch]++;
+      const ch = (t.channel || 'Website form').toLowerCase();
+      if (ch.includes('email')) counts['Email']++;
+      else if (ch.includes('whatsapp')) counts['WhatsApp']++;
       else counts['Website form']++;
     });
     return counts;
@@ -623,12 +884,12 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
     }
 
     if (channelFilter !== 'All') {
-      result = result.filter(t => (t.channel || 'Website form') === channelFilter);
+      result = result.filter(t => (t.channel || 'Website form').toLowerCase() === channelFilter.toLowerCase());
     }
 
     if (reqTypeFilter !== 'All') {
       result = result.filter(t => {
-        const tReq = REQUEST_TYPE_MAPPING[t.requestType] || t.requestType || 'Other';
+        const tReq = normalizeRequestType(t.requestType);
         return tReq === reqTypeFilter;
       });
     }
@@ -656,6 +917,27 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / TICKETS_PER_PAGE));
   const paginatedTickets = filtered.slice((currentPage - 1) * TICKETS_PER_PAGE, currentPage * TICKETS_PER_PAGE);
+
+  const handleRowClick = (ticket) => {
+    setViewTicket(ticket);
+    updateTicketUrl(ticket.id);
+  };
+
+  const handleBackToTickets = () => {
+    setViewTicket(null);
+    updateTicketUrl(null);
+  };
+
+  const handleTicketCreated = async () => {
+    setFilter('All');
+    setChannelFilter('All');
+    setReqTypeFilter('All');
+    setAccTypeFilter('All');
+    setSearchInput('');
+    setCurrentPage(1);
+    await onRetry();
+    window.setTimeout(() => onRetry(), 1200);
+  };
 
   const handleStatusChange = async (ticketId, newStatus) => {
     setUpdatingId(ticketId);
@@ -690,6 +972,9 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
         }
         return prev;
       });
+      const updatedTicket = tickets.find((ticket) => ticket.id === ticketId);
+      notifyTicketEvent({ ...updatedTicket, id: ticketId, status: newStatus }, 'STATUS_CHANGED', { ticketStatus: newStatus })
+        .catch((error) => console.warn('n8n status event failed:', error.message));
       setToast({ title: "Status Updated", message: `Ticket status changed to ${newStatus}` });
     } catch (error) {
       console.error("Error updating status:", error);
@@ -711,7 +996,7 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
         senderType: emailData.senderType,
         direction: 'outbound',
         sentAt: emailData.sentAt,
-        attachments: emailData.attachments || []
+        attachments: (emailData.attachments || []).map(({ name, size, type }) => ({ name, size, type }))
       };
 
       await fetch(`/api/NAFWebsite/issue/${ticketId}/emails`, {
@@ -730,12 +1015,9 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
     }));
   };
 
-  // Build full email thread: only show initial submission + replies if there is email activity
+  // Every ticket begins with the customer's intake request; API history adds replies and notes.
   const getTicketEmails = useCallback((ticket) => {
     const stored = emailHistory[ticket.id] || [];
-    // If no email activity exists, return empty — don't fake an email for form-submitted tickets
-    if (stored.length === 0) return [];
-    // Show the original ticket submission as first "inbound" email, followed by replies
     const initialEmail = {
       id: `initial-${ticket.id}`,
       subject: ticket.subject || 'Support Request',
@@ -745,33 +1027,47 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
       senderName: ticket.contactPerson || 'Unknown',
       senderEmail: ticket.email || '',
       direction: 'received',
-      attachments: [],
+      attachments: ticket.media || [],
     };
     return [initialEmail, ...stored];
   }, [emailHistory]);
 
+  if (viewTicket) {
+    return (
+      <TicketDetailPage 
+        ticket={viewTicket} 
+        emails={getTicketEmails(viewTicket)} 
+        onBack={handleBackToTickets}
+        onStatusChange={handleStatusChange} 
+        isUpdating={updatingId === viewTicket.id}
+        onEmailSent={handleEmailSent}
+        setToast={setToast}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3">
       {/* Page Heading */}
-      <div className="flex items-center gap-3">
-        <div className="flex flex-col gap-1 flex-1">
+      <div className="flex min-h-[66px] flex-wrap items-center gap-3 md:flex-nowrap">
+        <div className="flex min-w-0 basis-[280px] flex-1 flex-col gap-1">
           <h1 className="text-[28px] font-semibold leading-[38px] m-0" style={{ color: COLORS.text.heading }}>Support workspace</h1>
           <p className="text-[13px] m-0" style={{ color: COLORS.text.body }}>Every request. One queue. Website form, email and WhatsApp.</p>
         </div>
-        <div className="flex items-center h-[34px] px-3 rounded-[7px] border"
+        <div className="flex h-[34px] shrink-0 items-center rounded-[7px] border px-3"
           style={{ borderColor: COLORS.border }}>
           <span className="text-xs font-medium" style={{ color: COLORS.text.body }}>{todayStr}</span>
         </div>
         <button 
-          onClick={() => setNewTicketOpen(true)}
-          className="flex items-center h-[34px] px-3 rounded-[7px] border font-medium text-xs transition-colors hover:opacity-90"
+          onClick={() => { setSearchInput(''); setNewTicketOpen(true); }}
+          className="flex h-[34px] shrink-0 items-center rounded-[7px] border px-3 text-xs font-medium transition-colors hover:opacity-90"
           style={{ backgroundColor: COLORS.primary[500], borderColor: COLORS.activeBorder, color: COLORS.backgrounds.main }}>
           +  New ticket
         </button>
       </div>
 
       {/* Queue Overview KPI Strip */}
-      <div className="flex rounded-[10px] border overflow-hidden kpi-animate"
+      <div className="flex min-h-[96px] flex-col overflow-hidden rounded-[10px] border kpi-animate sm:flex-row"
         style={{ backgroundColor: COLORS.backgrounds.card, borderColor: COLORS.border }}>
         <QueueStat label="Open" value={stats.open} subtitle="Awaiting response" />
         <QueueStat label="In Progress" value={stats.inProgress} subtitle="Being handled" />
@@ -786,9 +1082,9 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
             <p className="text-sm font-semibold text-red-300">Failed to load tickets</p>
             <p className="text-xs text-red-300/60">{fetchError}</p>
           </div>
-          <button onClick={onRetry}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors flex items-center gap-2">
-            <RefreshCw className="w-3 h-3" /> Retry
+          <button onClick={onRetry} disabled={refreshing}
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} /> {refreshing ? 'Retrying' : 'Retry'}
           </button>
         </div>
       )}
@@ -812,10 +1108,12 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search name, email, phone, reference..."
+                  name="ticketSearch"
+                  autoComplete="off"
+                  placeholder="Search name, email, phone, reference…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  className="h-[36px] w-[322px] pl-3 pr-8 rounded-[7px] border text-xs outline-none transition-colors focus:border-white/20"
+                  className="h-[36px] w-[322px] max-w-full rounded-[7px] border pl-3 pr-8 text-xs outline-none transition-colors focus:border-white/20"
                   style={{ backgroundColor: 'transparent', borderColor: COLORS.border, color: COLORS.text.heading }}
                 />
                 {searchInput && (
@@ -829,30 +1127,33 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
               <div className="relative" ref={columnsRef}>
                 <PillButton label="Columns" active={columnsOpen} onClick={() => setColumnsOpen(!columnsOpen)} />
                 {columnsOpen && (
-                  <div className="absolute right-0 top-[38px] z-50 w-[200px] py-2 rounded-[8px] border border-[#24262B] bg-[#111215] shadow-xl shadow-black/40">
-                    <div className="px-3 pb-2 mb-2 border-b border-[#24262B] text-[10px] font-bold text-[#78828A] uppercase tracking-wider">
-                      Toggle Columns
-                    </div>
+                  <div className="absolute right-0 top-[38px] z-50 w-[364px] max-h-[520px] overflow-y-auto rounded-[10px] border border-[#282C2F] bg-[#111315] p-4 shadow-xl shadow-black/40">
+                    <div className="text-[15px] font-semibold leading-5 text-[#EFF2F0]">Columns</div>
+                    <div className="my-[10px] h-px w-full bg-[#282C2F]" />
                     {Object.entries({
-                      reference: 'Reference ID',
-                      subject: 'Subject',
-                      requester: 'Requester',
-                      machine: 'Machine #',
-                      requestType: 'Request Type',
+                      reference: 'Reference ID + created date/time',
+                      source: 'Source / channel',
+                      subject: 'Subject + description preview',
+                      requester: 'Full name + email / phone',
+                      account: 'Account type',
+                      machine: 'Machine ID / Location',
+                      requestType: 'Request type',
+                      media: 'Uploaded media indicator',
                       status: 'Status'
                     }).map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-2 px-3 py-1.5 hover:bg-[#1A1C20] cursor-pointer transition-colors group">
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[key]}
+                      <label key={key} className="flex cursor-pointer items-center gap-2 py-[2px] transition-colors group">
+                        <input type="checkbox" checked={visibleColumns[key] !== false} disabled={key === 'account' || key === 'media'}
                           onChange={(e) => setVisibleColumns(prev => ({ ...prev, [key]: e.target.checked }))}
-                          className="rounded-sm border-[#353A40] bg-transparent text-[#47EB3D] focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                        />
-                        <span className={`text-xs ${visibleColumns[key] ? 'text-white' : 'text-[#78828A] group-hover:text-white'} transition-colors`}>
+                          className="rounded-sm border-[#353A40] bg-transparent text-[#47EB3D] focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-40" />
+                        <span className={`text-[12px] leading-5 ${visibleColumns[key] !== false ? 'text-[#EFF2F0]' : 'text-[#A0A8AD]'} transition-colors`}>
                           {label}
                         </span>
                       </label>
                     ))}
+                    <div className="mt-[10px] flex flex-col gap-[2px] text-[12px] leading-5 text-[#A0A8AD]">
+                      <div>＋ Phone number as separate column</div>
+                      <div>＋ Full message / description</div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -873,12 +1174,14 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
               <FilterSelect 
                 value={reqTypeFilter}
                 onChange={(val) => setReqTypeFilter(val)}
+                menuWidth="w-[360px]"
                 options={["Machine Issue", "Payment / Refund", "NAF Membership", "NAF Wallet", "Mobile App", "NAF Cloud System", "Reservation / Pickup", "Complaint", "Feedback / Suggestion", "Partnership / Business Support", "Other"]}
                 defaultLabel="Request type"
               />
               <FilterSelect 
                 value={accTypeFilter}
                 onChange={(val) => setAccTypeFilter(val)}
+                menuWidth="w-[284px]"
                 options={["Customer / Guest", "NAF Member", "Business / Partner", "Other", "Not collected"]}
                 defaultLabel="Account type"
               />
@@ -897,15 +1200,55 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
 
           {/* Desktop Table */}
         <div className="hidden md:block">
-          {/* Divider */}
-          <div className="h-[1px]" style={{ backgroundColor: COLORS.border }} />
+          {/* Table Header */}
+          <div className="flex items-center h-[40px] px-4 border-t border-b" style={{ borderColor: COLORS.border, backgroundColor: '#15181A' }}>
+            {visibleColumns.reference && <div className="w-[160px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Reference / Created</div>}
+            {visibleColumns.subject && <div className="w-[430px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Subject / Description</div>}
+            {visibleColumns.requester && <div className="w-[270px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Requester / Account</div>}
+            {visibleColumns.machine && <div className="w-[230px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Machine / Location</div>}
+            {visibleColumns.requestType && <div className="w-[260px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Request type</div>}
+            {visibleColumns.status && <div className="w-[154px] shrink-0 text-[10px] font-medium leading-5 text-[#A0A8AD] uppercase">Status</div>}
+          </div>
 
-          <div className="flex items-center h-[46px] px-4 gap-3">
+          {/* Table Rows */}
+          <div className="flex flex-col">
+            {loading ? (
+              [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
+            ) : paginatedTickets.length === 0 && !fetchError ? (
+              <EmptyState hasSearch={!!searchQuery.trim()} />
+            ) : (
+              paginatedTickets.map(ticket => (
+                <AdminTicketRow
+                  key={ticket.id}
+                  ticket={ticket}
+                  isSelected={false}
+                  onClick={() => handleRowClick(ticket)}
+                  visibleColumns={visibleColumns}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="flex items-center h-[46px] px-4 gap-3 border-t" style={{ borderColor: COLORS.border }}>
             <span className="text-xs" style={{ color: COLORS.text.body }}>
               Showing {filtered.length === 0 ? 0 : (currentPage - 1) * TICKETS_PER_PAGE + 1}–{Math.min(currentPage * TICKETS_PER_PAGE, filtered.length)} of {filtered.length} active tickets
             </span>
             <div className="flex-1" />
-            <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>All times CEST</span>
+            <span className="flex items-center gap-2 text-[11px]" style={{ color: COLORS.text.disabled }}>
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${refreshing ? 'animate-pulse bg-[#78EF63]' : 'bg-[#4B5358]'}`} />
+              {refreshing ? 'Refreshing' : 'Auto-refresh 30s'} · All times CEST
+            </span>
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={refreshing}
+              title="Refresh tickets"
+              aria-label="Refresh tickets"
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-[7px] border transition-colors hover:bg-white/5 disabled:opacity-40"
+              style={{ borderColor: COLORS.border, color: COLORS.text.body }}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
 
             <button
               disabled={currentPage === 1}
@@ -959,7 +1302,7 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
       <NewTicketModal 
         isOpen={newTicketOpen} 
         onClose={() => setNewTicketOpen(false)} 
-        onTicketCreated={(ticket) => setTickets(prev => [ticket, ...prev])}
+        onTicketCreated={handleTicketCreated}
         isAuthenticated={isAuthenticated} 
       />
       {emailTicket && <EmailModal ticket={emailTicket} onClose={() => setEmailTicket(null)} setToast={setToast} onEmailSent={handleEmailSent} />}
@@ -982,13 +1325,13 @@ function AdminDashboard({ isAuthenticated, tickets, loading, fetchError, onRetry
 
 function SkeletonRow() {
   return (
-    <tr className="animate-pulse border-b border-white/5">
-      <td className="px-6 py-4"><div className="h-4 w-12 bg-white/10 rounded"></div></td>
-      <td className="px-6 py-4">
+    <div className="flex h-[80px] items-center border-b border-white/5 px-4 animate-pulse">
+      <div className="w-[160px] shrink-0"><div className="h-4 w-24 rounded bg-white/10"></div></div>
+      <div className="w-[430px] shrink-0">
         <div className="h-4 w-32 bg-white/10 rounded mb-2"></div>
         <div className="h-3 w-20 bg-white/5 rounded"></div>
-      </td>
-      <td className="px-6 py-4">
+      </div>
+      <div className="w-[270px] shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-white/10"></div>
           <div>
@@ -996,14 +1339,11 @@ function SkeletonRow() {
             <div className="h-2 w-32 bg-white/5 rounded"></div>
           </div>
         </div>
-      </td>
-      <td className="px-6 py-4"><div className="h-6 w-20 bg-white/10 rounded"></div></td>
-      <td className="px-6 py-4 flex gap-2">
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-        <div className="w-8 h-8 bg-white/10 rounded"></div>
-      </td>
-    </tr>
+      </div>
+      <div className="w-[230px] shrink-0"><div className="h-4 w-28 rounded bg-white/10"></div></div>
+      <div className="w-[260px] shrink-0"><div className="h-4 w-24 rounded bg-white/10"></div></div>
+      <div className="w-[154px] shrink-0"><div className="h-4 w-16 rounded bg-white/10"></div></div>
+    </div>
   );
 }
 
@@ -1174,21 +1514,13 @@ function DeleteModal({ isAuthenticated, ticket, onClose, setTickets, setToast })
 /* -------------------------------------------------------------------------- */
 /* ADMIN TICKET ROW                                                           */
 /* -------------------------------------------------------------------------- */
-function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns = { reference: true, subject: true, requester: true, machine: true, requestType: true, status: true } }) {
-  const formatShortDate = (dateInput) => {
-    if (!dateInput) return '';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' · ' +
-      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
-
+function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns }) {
   const channel = ticket.channel || 'Website form';
   const mediaCount = ticket.media?.length || 0;
   const mediaLabel = mediaCount > 0 ? `${mediaCount === 1 ? (ticket.media[0]?.type?.startsWith('image') ? 'Photo' : 'File') : 'Files'} · ${mediaCount} file${mediaCount > 1 ? 's' : ''}` : null;
 
-  const statusColor = ticket.status === 'OPEN' ? COLORS.primary[500]
-    : ticket.status === 'IN_PROGRESS' ? COLORS.secondary[500]
+  const statusColor = ticket.status === 'OPEN' ? '#78EF63'
+    : ticket.status === 'IN_PROGRESS' ? '#F1B568'
     : COLORS.text.disabled;
 
   const statusLabel = ticket.status === 'OPEN' ? 'Open'
@@ -1197,19 +1529,19 @@ function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns = { refere
 
   return (
     <div
-      className="flex items-center h-[80px] px-4 cursor-pointer transition-colors hover:bg-white/[0.02]"
-      style={{ backgroundColor: isSelected ? COLORS.activeBg : 'transparent' }}
+      className="flex items-center h-[80px] px-4 cursor-pointer transition-colors hover:bg-white/[0.02] border-b last:border-b-0"
+      style={{ backgroundColor: isSelected ? COLORS.activeBg : 'transparent', borderColor: COLORS.border }}
       onClick={onClick}
     >
       {/* REFERENCE / CREATED */}
-      {visibleColumns.reference && <div className="w-[160px] shrink-0 flex flex-col">
+      {visibleColumns.reference && <div className="w-[160px] shrink-0 flex flex-col pr-[14px]">
         <span className="text-xs font-medium" style={{ color: COLORS.text.heading }}>#{ticket.ticketId}</span>
-        <span className="text-[11px]" style={{ color: COLORS.text.body }}>{formatShortDate(ticket.createdAt)}</span>
-        <span className="text-[11px]" style={{ color: channel === 'Website form' && isSelected ? COLORS.primary[500] : COLORS.text.body }}>{channel}</span>
+        <span className="text-[11px]" style={{ color: COLORS.text.body }}>{formatTicketShortDate(ticket.createdAt)}</span>
+        {visibleColumns.source && <span className="text-[11px]" style={{ color: COLORS.text.body }}>{channel}</span>}
       </div>}
 
       {/* SUBJECT / DESCRIPTION */}
-      {visibleColumns.subject && <div className="flex-1 min-w-[200px] flex flex-col">
+      {visibleColumns.subject && <div className="w-[430px] shrink-0 flex flex-col pr-[14px]">
         <span className="text-[13px] font-medium truncate" style={{ color: COLORS.text.heading }}>{ticket.subject || 'No Subject'}</span>
         <span className="text-[11px] truncate" style={{ color: COLORS.text.body }}>{ticket.description || 'No description'}</span>
         {mediaLabel
@@ -1219,41 +1551,42 @@ function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns = { refere
       </div>}
 
       {/* REQUESTER / ACCOUNT */}
-      {visibleColumns.requester && <div className="w-[220px] shrink-0 flex flex-col">
+      {visibleColumns.requester && <div className="w-[270px] shrink-0 flex flex-col pr-[14px]">
         <span className="text-[13px] font-medium" style={{ color: COLORS.text.heading }}>{ticket.contactPerson || 'Unknown User'}</span>
         <span className="text-[11px] truncate" style={{ color: COLORS.text.body }}>{ticket.email || ticket.phone || '-'}</span>
         <span className="text-[11px]" style={{ color: !ticket.accountType || ticket.accountType === 'Customer' ? COLORS.text.body : COLORS.secondary[500] }}>
-          {ticket.accountType || 'Customer'}{ticket.accountType === 'Customer' ? ' / Guest' : ''}
+          {ACCOUNT_TYPE_MAPPING[ticket.accountType] || ticket.accountType || 'Customer / Guest'}
         </span>
       </div>}
 
       {/* MACHINE / LOCATION */}
-      {visibleColumns.machine && <div className="w-[180px] shrink-0 flex flex-col">
+      {visibleColumns.machine && <div className="w-[230px] shrink-0 flex flex-col pr-[14px]">
         {ticket.machineId && ticket.machineId !== 'N/A' && ticket.machineId !== '' ? (
           <span className="text-xs" style={{ color: COLORS.text.heading }}>{ticket.machineId}</span>
         ) : (
-          <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>-</span>
+          <span className="text-[12px]" style={{ color: COLORS.text.disabled }}>Not provided</span>
         )}
         
         {ticket.location && ticket.location !== 'N/A' && ticket.location !== '' ? (
           <span className="text-[11px]" style={{ color: COLORS.text.body }}>{ticket.location}</span>
         ) : (
-          <span className="text-[11px]" style={{ color: COLORS.text.disabled }}>-</span>
+          <span className="text-[11px]" style={{ color: COLORS.text.body }}>—</span>
         )}
       </div>}
 
       {/* REQUEST TYPE */}
-      {visibleColumns.requestType && <div className="w-[180px] shrink-0">
-        <span className="text-xs" style={{ color: COLORS.text.heading }}>{ticket.requestType}</span>
+      {visibleColumns.requestType && <div className="w-[260px] shrink-0 pr-[14px]">
+        <span className="text-xs" style={{ color: COLORS.text.heading }}>{normalizeRequestType(ticket.requestType)}</span>
       </div>}
 
       {/* STATUS */}
-      {visibleColumns.status && <div className="w-[120px] shrink-0">
+      {visibleColumns.status && <div className="w-[154px] shrink-0 pr-[14px]">
         <span className="text-xs font-medium" style={{ color: statusColor }}>{statusLabel}</span>
       </div>}
     </div>
   );
 }
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -1268,15 +1601,27 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
   const [replyMode, setReplyMode] = useState('email'); // 'email' or 'internal'
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState('');
+  const replyFileInputRef = useRef(null);
 
   const channel = ticket.channel || 'Website form';
   
-  const formatDate = (dateInput) => {
-    if (!dateInput) return '';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
-      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' CEST';
+  const handleReplyFileChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    const maxBytes = 5 * 1024 * 1024;
+    const validFiles = files.filter(file => {
+      const isImage = file.type?.startsWith('image/');
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      return (isImage || isPdf) && file.size < maxBytes;
+    });
+
+    setAttachmentError(validFiles.length === files.length
+      ? ''
+      : 'Only image or PDF files smaller than 5 MB can be attached.');
+    setReplyAttachments(prev => [...prev, ...validFiles]);
+    event.target.value = '';
   };
 
   const handleSendReply = async () => {
@@ -1286,8 +1631,11 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
     if (replyMode === 'email') {
       let webhookSuccess = false;
       try {
-        await triggerN8nEmail(ticket, 'REPLY_SENT', message);
-        webhookSuccess = true;
+        webhookSuccess = await notifyTicketEvent(ticket, 'REPLY_SENT', {
+          message,
+          subject: `Re: ${ticket.subject || ticket.ticketId}`,
+          attachments: replyAttachments,
+        });
       } catch (err) {
         console.warn('n8n webhook not available:', err.message);
       }
@@ -1296,15 +1644,16 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
         id: Math.random().toString(36).substring(2, 9),
         subject: `Re: ${ticket.subject || ticket.ticketId}`,
         message,
-        attachments: [],
+        attachments: replyAttachments.map(fileAttachmentMetadata),
         sentAt: new Date().toISOString(),
         senderType: 'Admin',
         senderName: 'NAF Support',
         direction: 'sent',
       };
       
-      onEmailSent(ticket.id, newEmail);
-      setToast({ title: "Email Sent", message: webhookSuccess ? `Reply sent to ${ticket.email}` : 'Reply saved locally (webhook unavailable)' });
+      await persistAttachmentPreviews(ticket.id, replyAttachments);
+      await onEmailSent(ticket.id, newEmail);
+      setToast({ title: "Reply recorded", message: webhookSuccess ? `Reply event sent for ${ticket.email}` : 'Reply saved to the ticket conversation.' });
     } else {
       // Internal note
       const newEmail = {
@@ -1317,11 +1666,13 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
         senderName: 'Internal Note',
         direction: 'sent',
       };
-      onEmailSent(ticket.id, newEmail);
+      await onEmailSent(ticket.id, newEmail);
       setToast({ title: "Note Added", message: "Internal note saved to conversation." });
     }
     
     setMessage('');
+    setReplyAttachments([]);
+    setAttachmentError('');
     setSending(false);
   };
 
@@ -1339,20 +1690,20 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
     : 'Closed';
 
   return (
-    <div className="flex flex-col h-full bg-[#09090A] fixed inset-0 z-40 overflow-hidden" style={{ minHeight: '100vh', fontFamily: "'Satoshi', sans-serif" }}>
+    <div className="fixed inset-0 z-40 mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col overflow-hidden bg-[#09090A]" style={{ fontFamily: "'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Header */}
-      <div className="flex justify-between items-center px-6 h-[70px] shrink-0 border-b border-[#212429] bg-[#09090A]">
-        <div className="flex items-center gap-3.5">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-[#212429] bg-[#09090A] px-4 py-3 sm:h-[70px] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-0">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           <button onClick={onBack} className="px-3 py-2 rounded-[10px] border border-[#282C2F] bg-[#111315] hover:bg-white/5 transition-colors">
             <span className="text-xs font-medium text-[#B2B8C2]">← Back</span>
           </button>
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[20px] font-semibold text-[#EBEDF2] font-heading">#{ticket.ticketId} · {ticket.subject || ticket.problemType || 'No Subject'}</span>
-            <span className="text-[11px] text-[#737885]">{channel} · {ticket.contactPerson} · Created {formatDate(ticket.createdAt)}</span>
+            <span className="text-[11px] text-[#737885]">{channel} · {ticket.contactPerson} · Created {formatTicketDate(ticket.createdAt)}</span>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isUpdating && <RefreshCw className="w-4 h-4 text-white animate-spin mr-2" />}
           <div className="px-3 py-2 rounded-[10px] border" style={{ backgroundColor: statusBg, borderColor: statusBorder }}>
             <span className="text-[11px] font-medium" style={{ color: statusColor }}>{statusLabel}</span>
@@ -1381,9 +1732,9 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
         </div>
       </div>
 
-      <div className="flex p-6 gap-5 h-[calc(100vh-70px)] overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 overflow-y-auto p-4 sm:p-6 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] lg:overflow-hidden">
         {/* Left Sidebar */}
-        <div className="w-[340px] shrink-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pb-6 pr-2">
+        <div className="flex w-full min-w-0 flex-col gap-3 lg:overflow-y-auto lg:pb-6 lg:pr-2 custom-scrollbar">
           
           {/* Ticket Details */}
           <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
@@ -1394,11 +1745,11 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[10px] text-[#6B707D]">Request type</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.requestType || 'General'}</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{normalizeRequestType(ticket.requestType)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[10px] text-[#6B707D]">Account type</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.accountType || 'Customer / Guest'}</span>
+              <span className="text-[10px] font-medium text-[#B8BDC7]">{ACCOUNT_TYPE_MAPPING[ticket.accountType] || ticket.accountType || 'Customer / Guest'}</span>
             </div>
           </div>
 
@@ -1408,7 +1759,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
             <span className="text-[13px] font-semibold text-[#E8EBF0]">{ticket.contactPerson || 'Unknown User'}</span>
             {ticket.email && <span className="text-[10px] text-[#7A808C]">{ticket.email}</span>}
             {ticket.phone && <span className="text-[10px] text-[#7A808C]">{ticket.phone}</span>}
-            <span className="text-[11px] text-[#A0A8AD]">{ticket.accountType || 'Customer / Guest'}</span>
+            <span className="text-[11px] text-[#A0A8AD]">{ACCOUNT_TYPE_MAPPING[ticket.accountType] || ticket.accountType || 'Customer / Guest'}</span>
           </div>
 
           {/* Related Context */}
@@ -1442,14 +1793,14 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
         </div>
 
         {/* Conversation Workspace */}
-        <div className="flex-1 flex flex-col min-w-0 max-w-[1200px]">
-          <div className="flex justify-between items-center mb-3">
+        <div className="flex min-h-[430px] w-full min-w-0 flex-col">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-[14px] font-semibold text-[#E5E8ED]">Conversation</span>
             <span className="text-[10px] text-[#6E7380]">{channel === 'WhatsApp' ? 'WhatsApp → WhatsApp replies' : `${channel} → Email replies`}</span>
           </div>
 
           {/* Timeline */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 pr-2 pb-4">
+          <div className="flex min-h-[220px] flex-1 flex-col gap-3 overflow-y-auto pb-4 pr-1 sm:pr-2 custom-scrollbar">
             {emails?.map((msg, i) => {
               const isCustomer = msg.direction === 'received' && msg.senderType !== 'System';
               const isSystem = msg.senderType === 'System';
@@ -1464,7 +1815,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
               const timeStr = new Date(msg.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
               return (
-                <div key={i} className={`p-3.5 flex flex-col gap-2 rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
+                <div key={i} className={`p-3.5 flex flex-col gap-[9px] rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
                   <div className="flex justify-between items-start">
                     <span className={`text-[10px] font-medium ${msgStyle.metaColor}`}>
                       {isInternal ? 'Internal note' : isServiceTeam ? `${msg.senderName} · Internal` : `${msg.senderName} · ${isCustomer ? channel : 'Email'}`}
@@ -1477,9 +1828,24 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="flex flex-col gap-1 mt-1">
                       {msg.attachments.map((att, j) => (
-                        <span key={j} className="text-[11px] text-[#78EF63] cursor-pointer hover:underline">
-                          {att.name} · {att.type?.startsWith('image') ? 'Image' : 'File'}
-                        </span>
+                        (() => {
+                          const attachmentUrl = getAttachmentPreviewUrl(att);
+                          const isImageAttachment = att.type?.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(attachmentUrl || att.name || '');
+                          const attachmentLabel = att.name || attachmentUrl.split('/').pop() || 'Attachment';
+                          const content = <><ImageIcon className="h-3 w-3" />{attachmentLabel} · {isImageAttachment ? 'Image' : 'File'}</>;
+                          return attachmentUrl && isImageAttachment ? (
+                            <button key={j} type="button" onClick={() => setPreviewAttachment({ ...att, url: attachmentUrl })}
+                              className="flex w-fit max-w-[240px] flex-col items-start gap-2 rounded-[8px] border border-[#26352A] bg-[#0A100B] p-2 text-left text-[11px] text-[#78EF63] transition-colors hover:border-[#78EF63]/50">
+                              <img src={attachmentUrl} alt={attachmentLabel}
+                                className="h-[120px] w-[180px] rounded-[5px] border border-[#212429] object-cover" />
+                              <span className="flex max-w-full items-center gap-1 truncate">{content}</span>
+                            </button>
+                          ) : (
+                            <span key={j} className="flex items-center gap-1 text-[11px] text-[#78EF63]">
+                              {content}
+                            </span>
+                          );
+                        })()
                       ))}
                     </div>
                   )}
@@ -1489,13 +1855,13 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
           </div>
 
           {/* Reply Composer */}
-          <div className="mt-3 p-3.5 flex flex-col gap-3 rounded-[14px] border border-[#212429] bg-[#0B0B0D] shrink-0">
+          <div className="mt-3 shrink-0 rounded-[14px] border border-[#212429] bg-[#0B0B0D] p-3.5 flex flex-col gap-3">
             {ticket.status === 'CLOSED' ? (
               <>
                 <div className="p-3.5 rounded-[10px] bg-[#080809]">
                   <span className="text-[11px] text-[#575C66]">This ticket is closed. Reopen it to reply.</span>
                 </div>
-                <div className="flex justify-between items-center mt-1">
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-[9px] text-[#575C66]">{channel === 'WhatsApp' ? `To: ${ticket.phone} · Replies stay on WhatsApp.` : `To: ${ticket.email} · Replies stay on email.`}</span>
                 </div>
               </>
@@ -1503,7 +1869,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
               <>
                 <div className="flex gap-2">
                   <button onClick={() => setReplyMode('email')} className={`px-3 py-1.5 rounded-[9px] border text-[10px] font-medium transition-colors ${replyMode === 'email' ? 'bg-[#142917] border-[#26522B] text-[#66EB5C]' : 'bg-[#0E0F10] border-[#24262B] text-[#8F94A1]'}`}>
-                    {channel === 'WhatsApp' ? 'Reply by WhatsApp' : 'Reply by email'}
+                    {channel === 'WhatsApp' ? 'Reply on WhatsApp' : 'Reply by email'}
                   </button>
                   <button onClick={() => setReplyMode('internal')} className={`px-3 py-1.5 rounded-[9px] border text-[10px] font-medium transition-colors ${replyMode === 'internal' ? 'bg-[#2A1E0D] border-[#4A3215] text-[#F5B24F]' : 'bg-[#0E0F10] border-[#24262B] text-[#8F94A1]'}`}>
                     Internal note
@@ -1518,27 +1884,76 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                     className="w-full bg-transparent p-3.5 text-[12px] text-[#C4C9D1] outline-none resize-none min-h-[80px]"
                   />
                 </div>
+
+                {replyMode === 'email' && (
+                  <>
+                    <input
+                      ref={replyFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={handleReplyFileChange}
+                    />
+                    {replyAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {replyAttachments.map((file, index) => (
+                          <div key={`${file.name}-${index}`} className="flex max-w-full items-center gap-2 rounded-[7px] border border-[#282C2F] bg-[#111315] px-2 py-1.5">
+                            {file.type === 'application/pdf' ? <FileText className="h-3 w-3 shrink-0 text-[#F5B24F]" /> : <ImageIcon className="h-3 w-3 shrink-0 text-[#78EF63]" />}
+                            <span className="max-w-[170px] truncate text-[10px] text-[#C4C9D1]">{file.name}</span>
+                            <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setReplyAttachments(prev => prev.filter((_, itemIndex) => itemIndex !== index))} className="text-[#7A808C] hover:text-white">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {attachmentError && <span className="text-[10px] text-[#F38C86]">{attachmentError}</span>}
+                  </>
+                )}
                 
-                <div className="flex justify-between items-center mt-1">
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-[9px] text-[#575C66]">
                     {replyMode === 'email' 
                       ? (channel === 'WhatsApp' ? `To: ${ticket.phone} · Replies stay on WhatsApp.` : `To: ${ticket.email} · Replies stay on email.`)
                       : 'Notes are only visible to staff.'}
                   </span>
-                  <button 
-                    onClick={handleSendReply}
-                    disabled={!message.trim() || sending}
-                    className="px-3.5 py-2 rounded-[9px] bg-[#47EB3D] disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                  >
-                    {sending && <RefreshCw className="w-3 h-3 text-[#050A05] animate-spin" />}
-                    <span className="text-[10px] font-semibold text-[#050A05]">{replyMode === 'email' ? 'Send reply' : 'Save note'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {replyMode === 'email' && (
+                      <button type="button" aria-label="Attach image or PDF" title="Attach image or PDF (under 5 MB)" onClick={() => replyFileInputRef.current?.click()} className="flex items-center gap-1.5 rounded-[9px] border border-[#282C2F] px-3 py-2 text-[10px] font-medium text-[#A0A8AD] transition-colors hover:border-[#78EF63]/50 hover:text-white">
+                        <Paperclip className="h-3.5 w-3.5" />
+                        Attach
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleSendReply}
+                      disabled={!message.trim() || sending}
+                      className="px-3.5 py-2 rounded-[9px] bg-[#47EB3D] disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                    >
+                      {sending && <RefreshCw className="w-3 h-3 text-[#050A05] animate-spin" />}
+                      <span className="text-[10px] font-semibold text-[#050A05]">{replyMode === 'email' ? 'Send reply' : 'Save note'}</span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
           </div>
         </div>
       </div>
+      {previewAttachment && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
+          onClick={() => setPreviewAttachment(null)}>
+          <div className="relative max-h-full max-w-full rounded-[10px] border border-[#282C2F] bg-[#111315] p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}>
+            <button type="button" aria-label="Close image preview" onClick={() => setPreviewAttachment(null)}
+              className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-[7px] border border-[#282C2F] bg-[#0C0D0E]/90 text-[#A0A8AD] hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+            <img src={previewAttachment.url} alt={previewAttachment.name || 'Ticket attachment'}
+              className="max-h-[80vh] max-w-[min(90vw,1100px)] rounded-[6px] object-contain" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1578,9 +1993,6 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // n8n webhook URL for sending reply emails — update this after importing the workflow
-  const N8N_SEND_REPLY_WEBHOOK = 'https://n8n.naf-cloudsystem.de/webhook/send-support-reply';
-
   const handleSend = async (e) => {
     e.preventDefault();
     setSending(true);
@@ -1588,22 +2000,11 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
     // Try sending via n8n webhook (actual email delivery)
     let webhookSuccess = false;
     try {
-      const formData = new FormData();
-      formData.append('to', ticket.email);
-      formData.append('toName', ticket.contactPerson);
-      formData.append('subject', subject);
-      formData.append('message', message);
-      formData.append('ticketId', ticket.id);
-      formData.append('ticketRef', ticket.ticketId);
-      attachments.forEach(file => {
-        formData.append('attachments', file);
+      webhookSuccess = await notifyTicketEvent(ticket, 'REPLY_SENT', {
+        subject,
+        message,
+        attachments,
       });
-
-      const resp = await fetch(N8N_SEND_REPLY_WEBHOOK, {
-        method: 'POST',
-        body: formData  // No Content-Type header — browser sets multipart boundary
-      });
-      if (resp.ok) webhookSuccess = true;
     } catch (err) {
       console.warn('n8n webhook not available — email recorded locally only:', err.message);
     }
@@ -1614,13 +2015,14 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
       id: Math.random().toString(36).substring(2, 9),
       subject,
       message,
-      attachments: attachments.map(a => ({ name: a.name, size: a.size, type: a.type })),
+      attachments: attachments.map(fileAttachmentMetadata),
       sentAt: new Date().toISOString(),
       senderType: 'Admin',
       senderName: 'Support Team',
       direction: 'sent',
     };
 
+    await persistAttachmentPreviews(ticket.id, attachments);
     if (ticket.onEmailSent) {
       ticket.onEmailSent(ticket.id, newEmail);
     } else if (onEmailSent) {
@@ -1736,14 +2138,43 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdTicketId, setCreatedTicketId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [submitError, setSubmitError] = useState('');
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData({ fullName: '', email: '', phone: '', location: '', accountType: '', requestType: '', subject: '', description: '' });
+    setAttachments([]);
+    setSubmitError('');
+    setShowErrors(false);
+    setIsSuccess(false);
+  }, [isOpen]);
   
   if (!isOpen) return null;
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const fieldName = e.target.dataset.field || e.target.name;
+    setFormData(prev => ({ ...prev, [fieldName]: e.target.value }));
+    setSubmitError('');
+  };
+
+  const handleChannelChange = (nextChannel) => {
+    setChannel(nextChannel);
+    setFormData(prev => ({
+      ...prev,
+      accountType: '',
+      requestType: '',
+    }));
+    setShowErrors(false);
+    setSubmitError('');
+  };
 
   const validate = () => {
-    return formData.fullName.trim() && 
-           formData.email.trim() && 
+    const hasName = formData.fullName.trim();
+    const hasContact = channel === 'WhatsApp' ? formData.phone.trim() : formData.email.trim();
+    return hasName && 
+           hasContact && 
            formData.accountType && 
            formData.requestType && 
            formData.subject.trim() && 
@@ -1757,69 +2188,90 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
     }
     
     setIsSubmitting(true);
+    setSubmitError('');
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 30000);
     
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (isAuthenticated) headers['Authorization'] = 'Basic YWRtaW46c2VjdXJlMTIz'; 
+      const headers = getAuthHeaders(isAuthenticated);
+      const source = channel === 'Email' ? 'Manual Email' : 'Manual WhatsApp';
       
       const payload = {
-        contactPerson: formData.fullName,
-        email: formData.email,
-        phone: formData.phone || null,
-        location: formData.location || null,
-        machineId: formData.location || null,
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phoneNumber: formData.phone.trim() || null,
+        machineLocation: formData.location.trim() || null,
         accountType: formData.accountType,
         requestType: formData.requestType,
-        subject: formData.subject,
-        description: formData.description,
-        channel: channel,
-        source: 'Manual Entry'
+        subject: formData.subject.trim(),
+        description: formData.description.trim(),
+        source
       };
 
-      const res = await fetch('/api/NAFWebsite/support-issues', {
+      const uploadData = new FormData();
+      attachments.forEach((file) => uploadData.append('mediaFiles', file));
+      const res = await fetch(`/api/NAFWebsite/support-issues?issueData=${encodeURIComponent(JSON.stringify(payload))}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload)
+        body: uploadData,
+        signal: controller.signal
       });
       
-      let newTicket = null;
-      if (res.ok) {
-        newTicket = await res.json();
-      } else {
-        newTicket = {
-          ...payload,
-          id: Math.random().toString(36).substring(2, 9),
-          ticketId: Math.floor(100000 + Math.random() * 900000).toString(),
-          status: 'OPEN',
-          createdAt: new Date().toISOString(),
-        };
+      if (!res.ok) {
+        const detail = await res.text();
+        let message = detail;
+        try {
+          const parsed = detail ? JSON.parse(detail) : null;
+          message = parsed?.message || parsed?.error || detail;
+        } catch {
+          // Keep the plain response when the API does not return JSON.
+        }
+        throw new Error(message || `The server returned ${res.status}.`);
+      }
+      const responseText = await res.text();
+      let newTicket = {};
+      if (responseText.trim()) {
+        try {
+          newTicket = JSON.parse(responseText);
+        } catch {
+          newTicket = { ticketId: responseText.trim() };
+        }
       }
       
-      setCreatedTicketId(newTicket.ticketId);
-      onTicketCreated(newTicket);
+      setCreatedTicketId(newTicket.ticketId || newTicket.id || 'New ticket');
+      const eventTicket = {
+        ...newTicket,
+        id: newTicket.id || newTicket.ticketId || '',
+        ticketId: newTicket.ticketId || newTicket.reference || newTicket.id || '',
+        status: newTicket.status || 'OPEN',
+        contactPerson: payload.fullName,
+        email: payload.email,
+        phone: payload.phoneNumber,
+        subject: payload.subject,
+        description: payload.description,
+        requestType: payload.requestType,
+        accountType: payload.accountType,
+        source: payload.source,
+      };
+      notifyTicketEvent(eventTicket, 'TICKET_RECEIVED', { attachments })
+        .catch((error) => console.warn('n8n ticket event failed:', error.message));
+      await onTicketCreated(newTicket);
       setIsSuccess(true);
     } catch (err) {
-      console.error(err);
-      const newTicket = {
-        ...formData,
-        contactPerson: formData.fullName,
-        id: Math.random().toString(36).substring(2, 9),
-        ticketId: Math.floor(100000 + Math.random() * 900000).toString(),
-        status: 'OPEN',
-        createdAt: new Date().toISOString(),
-        channel: channel,
-        source: 'Manual Entry'
-      };
-      setCreatedTicketId(newTicket.ticketId);
-      onTicketCreated(newTicket);
-      setIsSuccess(true);
+      console.error('Ticket creation failed:', err);
+      setSubmitError(err.name === 'AbortError'
+        ? 'The server took too long to respond. Please try again.'
+        : (err.message || 'Unable to create the ticket. Please try again.'));
+    } finally {
+      window.clearTimeout(timeoutId);
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
   
   const resetAndClose = () => {
     setFormData({ fullName: '', email: '', phone: '', location: '', accountType: '', requestType: '', subject: '', description: '' });
+    setAttachments([]);
+    setSubmitError('');
     setShowErrors(false);
     setIsSuccess(false);
     onClose();
@@ -1827,6 +2279,13 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
 
   const getBorderColor = (fieldName) => {
     if (!showErrors) return '#282C2F';
+    
+    if (channel === 'WhatsApp' && fieldName === 'phone' && (!formData.phone || !formData.phone.trim())) return '#F38C86';
+    if (channel !== 'WhatsApp' && fieldName === 'email' && (!formData.email || !formData.email.trim())) return '#F38C86';
+    
+    if (channel === 'WhatsApp' && fieldName === 'email') return '#282C2F';
+    if (channel !== 'WhatsApp' && fieldName === 'phone') return '#282C2F';
+
     if (!formData[fieldName] || !formData[fieldName].trim()) return '#F38C86';
     return '#282C2F';
   };
@@ -1850,7 +2309,7 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={resetAndClose}>
-      <div className="flex w-[760px] p-7 flex-col items-start gap-3 rounded-[16px] border border-[#282C2F] bg-[#111315] shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
+      <div className="flex w-full max-w-[760px] p-5 sm:p-7 flex-col items-start gap-3 rounded-[16px] border border-[#282C2F] bg-[#111315] shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex w-full h-[38px] items-center gap-2.5">
           <span className="text-[24px] font-semibold text-[#EFF2F0] font-heading">New ticket</span>
@@ -1865,10 +2324,10 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
         <div className="flex flex-col gap-2 mt-2 w-full">
           <span className="text-[11px] font-medium text-[#A0A8AD] uppercase">REPLY CHANNEL</span>
           <div className="flex gap-2">
-            <button onClick={() => setChannel('Email')} className={`flex h-[34px] px-3 items-center rounded-[7px] border transition-colors ${channel === 'Email' ? 'border-[#345135] bg-[#17241A] text-[#78EF63]' : 'border-[#282C2F] text-[#A0A8AD]'}`}>
+            <button onClick={() => handleChannelChange('Email')} className={`flex h-[34px] px-3 items-center rounded-[7px] border transition-colors ${channel === 'Email' ? 'border-[#345135] bg-[#17241A] text-[#78EF63]' : 'border-[#282C2F] text-[#A0A8AD]'}`}>
               <span className="text-[12px] font-medium">Email</span>
             </button>
-            <button onClick={() => setChannel('WhatsApp')} className={`flex h-[34px] px-3 items-center rounded-[7px] border transition-colors ${channel === 'WhatsApp' ? 'border-[#345135] bg-[#17241A] text-[#78EF63]' : 'border-[#282C2F] text-[#A0A8AD]'}`}>
+            <button onClick={() => handleChannelChange('WhatsApp')} className={`flex h-[34px] px-3 items-center rounded-[7px] border transition-colors ${channel === 'WhatsApp' ? 'border-[#345135] bg-[#17241A] text-[#78EF63]' : 'border-[#282C2F] text-[#A0A8AD]'}`}>
               <span className="text-[12px] font-medium">WhatsApp</span>
             </button>
           </div>
@@ -1876,84 +2335,91 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
         </div>
 
         {/* Contact Fields */}
-        <div className="flex w-full gap-4 mt-2">
+        <div className="flex w-full flex-col sm:flex-row gap-3 sm:gap-4 mt-2">
           <div className="flex flex-col gap-1.5 flex-1">
             <span className="text-[12px] font-medium text-[#A0A8AD]">Full name *</span>
-            <input name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Enter full name" 
+            <input name="ticket_customer_name" data-field="fullName" autoComplete="new-password" value={formData.fullName} onChange={handleChange} placeholder="Enter full name" 
               className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none"
               style={{ borderColor: getBorderColor('fullName') }} />
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
-            <span className="text-[12px] font-medium text-[#A0A8AD]">Email *</span>
-            <input name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" 
+            <span className="text-[12px] font-medium text-[#A0A8AD]">{channel === 'WhatsApp' ? 'Email (optional)' : 'Email *'}</span>
+            <input name="ticket_customer_email" data-field="email" autoComplete="new-password" value={formData.email} onChange={handleChange} placeholder="name@example.com" 
               className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none"
-              style={{ borderColor: getBorderColor('email') }} />
+              style={{ borderColor: channel !== 'WhatsApp' ? getBorderColor('email') : '#282C2F' }} />
           </div>
         </div>
 
         {/* Optional Details */}
-        <div className="flex w-full gap-4 mt-2">
+        <div className="flex w-full flex-col sm:flex-row gap-3 sm:gap-4 mt-2">
           <div className="flex flex-col gap-1.5 flex-1">
-            <span className="text-[12px] font-medium text-[#A0A8AD]">Phone number</span>
-            <input name="phone" value={formData.phone} onChange={handleChange} placeholder="Optional" 
-              className="h-[42px] px-3 rounded-[7px] border border-[#282C2F] bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none" />
+            <span className="text-[12px] font-medium text-[#A0A8AD]">{channel === 'WhatsApp' ? 'Phone number *' : 'Phone number'}</span>
+            <input name="ticket_customer_phone" data-field="phone" autoComplete="new-password" value={formData.phone} onChange={handleChange} placeholder={channel === 'WhatsApp' ? 'Enter phone number' : 'Optional'} 
+              className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none"
+              style={{ borderColor: channel === 'WhatsApp' ? getBorderColor('phone') : '#282C2F' }} />
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
             <span className="text-[12px] font-medium text-[#A0A8AD]">Machine ID / Location</span>
-            <input name="location" value={formData.location} onChange={handleChange} placeholder="Optional" 
+            <input name="ticket_machine_location" data-field="location" autoComplete="off" value={formData.location} onChange={handleChange} placeholder="Optional" 
               className="h-[42px] px-3 rounded-[7px] border border-[#282C2F] bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none" />
           </div>
         </div>
 
         {/* Classification */}
-        <div className="flex w-full gap-4 mt-2">
+        <div className="flex w-full flex-col sm:flex-row gap-3 sm:gap-4 mt-2">
           <div className="flex flex-col gap-1.5 flex-1">
             <span className="text-[12px] font-medium text-[#A0A8AD]">Account type *</span>
-            <select name="accountType" value={formData.accountType} onChange={handleChange}
-              className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] outline-none cursor-pointer"
-              style={{ borderColor: getBorderColor('accountType'), color: formData.accountType ? '#EFF2F0' : '#78828A' }}>
-              <option value="" disabled>Select account type</option>
-              <option value="Customer / Guest">Customer / Guest</option>
-              <option value="B2B Partner">B2B Partner</option>
-              <option value="Internal">Internal</option>
-            </select>
+            <DarkSelect name="accountType" value={formData.accountType} onChange={handleChange}
+              placeholder="Select account type"
+              options={["Customer / Guest", "NAF Member", "Business / Partner", "Other", "Not collected"]}
+              borderColor={getBorderColor('accountType')} />
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
             <span className="text-[12px] font-medium text-[#A0A8AD]">Request type *</span>
-            <select name="requestType" value={formData.requestType} onChange={handleChange}
-              className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] outline-none cursor-pointer"
-              style={{ borderColor: getBorderColor('requestType'), color: formData.requestType ? '#EFF2F0' : '#78828A' }}>
-              <option value="" disabled>Select request type</option>
-              <option value="Payment / Refund">Payment / Refund</option>
-              <option value="Machine Malfunction">Machine Malfunction</option>
-              <option value="General Inquiry">General Inquiry</option>
-            </select>
+            <DarkSelect name="requestType" value={formData.requestType} onChange={handleChange}
+              placeholder="Select request type"
+              options={["Machine Issue", "Payment / Refund", "NAF Membership", "NAF Wallet", "Mobile App", "NAF Cloud System", "Reservation / Pickup", "Complaint", "Feedback / Suggestion", "Partnership / Business Support", "Other"]}
+              borderColor={getBorderColor('requestType')} />
           </div>
         </div>
 
         {/* Subject & Message */}
         <div className="flex flex-col gap-1.5 mt-2 w-full">
           <span className="text-[12px] font-medium text-[#A0A8AD]">Subject *</span>
-          <input name="subject" value={formData.subject} onChange={handleChange} placeholder="Briefly describe the request" 
+          <input name="ticket_subject" data-field="subject" autoComplete="off" value={formData.subject} onChange={handleChange} placeholder="Briefly describe the request" 
             className="h-[42px] px-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none"
             style={{ borderColor: getBorderColor('subject') }} />
         </div>
         <div className="flex flex-col gap-1.5 mt-2 w-full">
           <span className="text-[12px] font-medium text-[#A0A8AD]">Message / Description *</span>
-          <textarea name="description" value={formData.description} onChange={handleChange} placeholder="What happened? Include any details that will help us." 
+          <textarea name="ticket_description" data-field="description" autoComplete="off" value={formData.description} onChange={handleChange} placeholder="What happened? Include any details that will help us." 
             className="h-[78px] p-3 rounded-[7px] border bg-[#0C0D0E] text-[13px] text-[#EFF2F0] placeholder:text-[#78828A] outline-none resize-none"
             style={{ borderColor: getBorderColor('description') }} />
         </div>
 
-        {/* Media Upload (Visual only) */}
-        <div className="flex w-full h-[48px] px-3 mt-2 items-center rounded-[7px] border border-[#282C2F] cursor-pointer hover:bg-white/5 transition-colors">
-          <span className="text-[12px] text-[#A0A8AD]">＋ Add photos, video or audio</span>
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,video/*,audio/*"
+          className="hidden"
+          onChange={(event) => setAttachments(Array.from(event.target.files || []))}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex h-[48px] w-full items-center rounded-[7px] border border-[#282C2F] px-3 text-left hover:bg-white/5 transition-colors"
+        >
+          <span className="text-[12px] text-[#A0A8AD]">{attachments.length ? `${attachments.length} file${attachments.length > 1 ? 's' : ''} selected` : '+ Add photos, video or audio'}</span>
+        </button>
 
         {/* Notification choice */}
         <div className="flex flex-col gap-1 mt-2 w-full">
-          <span className="text-[12px] text-[#EFF2F0]">✓ Send a ticket confirmation to the customer</span>
-          <span className="text-[11px] text-[#A0A8AD]">New tickets start as Open. * Required fields</span>
+          <div className="flex items-center gap-2">
+            <Check className="w-3.5 h-3.5" style={{ color: COLORS.primary[500] }} />
+            <span className="text-[12px] text-[#EFF2F0]">{channel === 'WhatsApp' ? 'Send a confirmation on WhatsApp' : 'Send a ticket confirmation to the customer'}</span>
+          </div>
+          <span className="text-[11px] text-[#A0A8AD]">{channel === 'WhatsApp' ? 'Replies will be sent by WhatsApp. A phone number is required.' : 'New tickets start as Open. * Required fields'}</span>
         </div>
 
         <div className="w-full h-[1px] bg-[#282C2F] mt-2"></div>
@@ -1962,12 +2428,13 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
         {showErrors && (
           <span className="text-[12px] text-[#F38C86]">Please complete the required fields before creating this ticket.</span>
         )}
+        {submitError && <span className="text-[12px] text-[#F38C86]">{submitError}</span>}
         
         <div className="flex w-full justify-end items-center gap-2.5 mt-1">
           <button onClick={resetAndClose} className="flex h-[34px] px-3 items-center justify-center rounded-[7px] border border-[#282C2F] hover:bg-white/5 transition-colors">
             <span className="text-[12px] font-medium text-[#A0A8AD]">Cancel</span>
           </button>
-          <button onClick={handleSubmit} disabled={isSubmitting} className="flex h-[34px] px-3 items-center justify-center rounded-[7px] border border-[#345135] bg-[#78EF63] hover:opacity-90 transition-opacity disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={isSubmitting} className="flex h-[34px] items-center justify-center rounded-[7px] border border-[#345135] bg-[#78EF63] px-3 text-[12px] font-medium text-[#0C0D0E] hover:opacity-90 transition-opacity disabled:opacity-50">
             {isSubmitting ? '...' : 'Create ticket'}
           </button>
         </div>

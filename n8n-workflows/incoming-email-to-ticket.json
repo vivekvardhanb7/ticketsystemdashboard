@@ -22,7 +22,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.naf-cloudsystem.de/api/NAFWebsite/issues",
+        "url": "https://testing-api.naf-cloudsystem.de/api/NAFWebsite/issues",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

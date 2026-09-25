@@ -11,7 +11,7 @@ n8n will call this endpoint when a customer email is received to auto-create a t
 
 ### Endpoint
 ```
-POST https://api.naf-cloudsystem.de/api/NAFWebsite/issues
+POST https://testing-api.naf-cloudsystem.de/api/NAFWebsite/issues
 ```
 
 ### Request Body (JSON)
@@ -51,7 +51,7 @@ If you want email history to be stored server-side instead of browser localStora
 
 ### Store Email
 ```
-POST https://api.naf-cloudsystem.de/api/NAFWebsite/issue/{ticketId}/emails
+POST https://testing-api.naf-cloudsystem.de/api/NAFWebsite/issue/{ticketId}/emails
 ```
 
 ### Request Body
@@ -72,7 +72,7 @@ POST https://api.naf-cloudsystem.de/api/NAFWebsite/issue/{ticketId}/emails
 
 ### Get Email History for a Ticket
 ```
-GET https://api.naf-cloudsystem.de/api/NAFWebsite/issue/{ticketId}/emails
+GET https://testing-api.naf-cloudsystem.de/api/NAFWebsite/issue/{ticketId}/emails
 ```
 
 ### Expected Response
