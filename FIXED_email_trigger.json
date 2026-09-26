@@ -1,0 +1,189 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "foldersToInclude": [
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACAQwAAAA=",
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACARMAAAA="
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "id": "f1f2f7cf-cf97-44d8-8591-5dc1bed64acd",
+      "name": "Microsoft Outlook Trigger6",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "filter-sender",
+              "leftValue": "={{ typeof $json.from === 'string' ? $json.from : ($json.from?.emailAddress?.address || '') }}",
+              "rightValue": "info@naf-halsbach.de",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "361a5637-eb4b-47df-8306-c558126209e8",
+      "name": "Filter Sender3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const itemData of items) {\n  const item = itemData.json;\n  let senderName = '';\n  let senderEmail = '';\n\n  // Outlook Trigger v1 outputs 'from' as a plain email string or object\n  if (typeof item.from === 'string') {\n    senderEmail = item.from;\n    const namePart = item.from.split('@')[0] || '';\n    senderName = namePart.replace(/[._-]/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\n  } else if (item.from && item.from.emailAddress) {\n    senderEmail = item.from.emailAddress.address || '';\n    senderName = item.from.emailAddress.name || '';\n  }\n\n  // Fallback to sender field\n  if (!senderEmail && item.sender) {\n    if (typeof item.sender === 'string') {\n      senderEmail = item.sender;\n    } else if (item.sender.emailAddress) {\n      senderEmail = item.sender.emailAddress.address || '';\n      senderName = senderName || item.sender.emailAddress.name || '';\n    }\n  }\n\n  const subject = item.subject || '';\n\n  // Get description - strip HTML tags\n  let description = item.bodyPreview || '';\n  if (!description && item.body && item.body.content) {\n    description = item.body.content\n      .replace(/<[^>]*>/g, '')\n      .replace(/&nbsp;/g, ' ')\n      .replace(/&amp;/g, '&')\n      .replace(/\\s+/g, ' ')\n      .trim();\n  }\n\n  results.push({\n    json: {\n      fullName: senderName,\n      email: senderEmail,\n      subject: subject,\n      description: description,\n      requestType: 'Email Support',\n      accountType: 'Customer',\n      messageId: item.id\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "id": "d10c6f18-7cc8-4f3c-9794-8b4c98f001d6",
+      "name": "Extract Email Data2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://testing-api.naf-cloudsystem.de/api/NAFWebsite/support-issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "issueData",
+              "value": "={{ JSON.stringify({ fullName: $json.fullName, email: $json.email, subject: $json.subject, description: $json.description, requestType: $json.requestType, accountType: $json.accountType, source: 'Email' }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        200
+      ],
+      "id": "a4df2687-dff7-4074-9b09-6abb31df1370",
+      "name": "Create Ticket6"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "value": "={{ $json.messageId }}",
+          "mode": "id"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        860,
+        420
+      ],
+      "id": "2745fb3c-f36a-4ff7-a486-37f4ffae6594",
+      "name": "Mark as Read",
+      "webhookId": "f97a361e-756a-4900-831f-1e4919050ae5",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Microsoft Outlook Trigger6": {
+      "main": [
+        [
+          {
+            "node": "Filter Sender3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sender3": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data2": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c53257bed1f0fcf835991b184a5f5a690a62c31f39b42c9afb9d86ed3ee22612"
+  }
+}

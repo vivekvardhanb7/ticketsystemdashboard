@@ -1,0 +1,300 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "custom": "isRead eq false",
+          "foldersToInclude": [
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACAQwAAAA=",
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACARMAAAA="
+          ]
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1488,
+        -1776
+      ],
+      "id": "a99e3061-86d9-4737-9b59-6bc6ae30cc56",
+      "name": "Microsoft Outlook Trigger6",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "filter-sender",
+              "leftValue": "={{ typeof $json.from === 'string' ? $json.from : ($json.from?.emailAddress?.address || '') }}",
+              "rightValue": "info@naf-halsbach.de",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        -1776
+      ],
+      "id": "72fade0a-9107-444b-88ac-eb3ec0d45391",
+      "name": "Filter Sender3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const itemData of items) {\n  const item = itemData.json;\n  let senderName = '';\n  let senderEmail = '';\n\n  if (typeof item.from === 'string') {\n    senderEmail = item.from;\n    const namePart = item.from.split('@')[0] || '';\n    senderName = namePart.replace(/[._-]/g, ' ').replace(/\\b\\w/g, c => c.toUpperCase());\n  } else if (item.from && item.from.emailAddress) {\n    senderEmail = item.from.emailAddress.address || '';\n    senderName = item.from.emailAddress.name || '';\n  }\n\n  if (!senderEmail && item.sender) {\n    if (typeof item.sender === 'string') {\n      senderEmail = item.sender;\n    } else if (item.sender.emailAddress) {\n      senderEmail = item.sender.emailAddress.address || '';\n      senderName = senderName || item.sender.emailAddress.name || '';\n    }\n  }\n\n  const subject = item.subject || '';\n  let description = item.bodyPreview || '';\n  if (!description && item.body && item.body.content) {\n    description = item.body.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim();\n  }\n\n  const binary = {};\n  let binaryKeys = [];\n  let hasAttachments = false;\n\n  if (itemData.binary) {\n    let i = 0;\n    for (const key of Object.keys(itemData.binary)) {\n      if (key.startsWith('attachment_')) {\n        const newKey = i === 0 ? 'mediaFiles' : `mediaFiles${i}`;\n        binary[newKey] = itemData.binary[key];\n        binaryKeys.push(newKey);\n        i++;\n      }\n    }\n    if (binaryKeys.length > 0) hasAttachments = true;\n  }\n\n  results.push({\n    json: {\n      fullName: senderName,\n      email: senderEmail,\n      subject: subject,\n      description: description,\n      requestType: 'other',\n      accountType: 'not_collected',\n      source: 'Email',\n      messageId: item.id,\n      hasAttachments: hasAttachments,\n      binaryKeys: binaryKeys.join(',')\n    },\n    binary: hasAttachments ? binary : undefined\n  });\n}\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        -1776
+      ],
+      "id": "b5be4f79-c6cf-485d-a2ba-42c8bdb9540f",
+      "name": "Extract Email Data2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://testing-api.naf-cloudsystem.de/api/NAFWebsite/support-issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "issueData",
+              "value": "={{ JSON.stringify({ fullName: $json.fullName || \"\", email: $json.email || \"\", phoneNumber: \"\", machineLocation: \"\", accountType: $json.accountType || \"Customer\", requestType: $json.requestType || \"Email Support\", subject: $json.subject || \"\", description: $json.description || \"\", source: $json.source || \"Email\" }) }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "mediaFiles",
+              "inputDataFieldName": "mediaFiles"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -576,
+        -1936
+      ],
+      "id": "53cb7d24-7666-4306-bfca-4f71079463e3",
+      "name": "Create Ticket (With Attachments)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://testing-api.naf-cloudsystem.de/api/NAFWebsite/support-issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "issueData",
+              "value": "={{ JSON.stringify({ fullName: $json.fullName || \"\", email: $json.email || \"\", phoneNumber: \"\", machineLocation: \"\", accountType: $json.accountType || \"Customer\", requestType: $json.requestType || \"Email Support\", subject: $json.subject || \"\", description: $json.description || \"\", source: $json.source || \"Email\" }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -576,
+        -1744
+      ],
+      "id": "97b2cdff-a565-4d9a-87ef-ecf57bfd1ea3",
+      "name": "Create Ticket (No Attachments)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Email Data2').item.json.messageId }}",
+          "mode": "id"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        -1840
+      ],
+      "id": "9707cd13-b5a5-4807-a1d6-8fd3e551d1e6",
+      "name": "Mark as Read",
+      "webhookId": "f97a361e-756a-4900-831f-1e4919050ae5",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-attachments-check",
+              "leftValue": "={{ $json.hasAttachments }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        -1776
+      ],
+      "id": "3605d3d3-c90b-4c3f-b3a7-a2182686cd17",
+      "name": "Has Attachments?1"
+    }
+  ],
+  "connections": {
+    "Microsoft Outlook Trigger6": {
+      "main": [
+        [
+          {
+            "node": "Filter Sender3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sender3": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data2": {
+      "main": [
+        [
+          {
+            "node": "Has Attachments?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket (With Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket (No Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?1": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket (With Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Ticket (No Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c53257bed1f0fcf835991b184a5f5a690a62c31f39b42c9afb9d86ed3ee22612"
+  }
+}

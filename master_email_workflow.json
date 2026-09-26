@@ -1,0 +1,436 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ticket-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-node",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "TICKET_RECEIVED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "IN_PROGRESS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "REPLY_SENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "CLOSED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "OPEN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "fallbackOutput": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        200,
+        0
+      ],
+      "id": "switch-node",
+      "name": "Route by Event Type"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>[Ticket reference] Request received</title></head><body style=\"margin: 0; padding: 40px 20px; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif;\"><!-- Preheader (Hidden) --><div style=\"display: none; max-height: 0px; overflow: hidden;\">Your reference is [Ticket reference]. Reply here to add details.</div><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 600px; margin: 0 auto; background-color: #FFFFFF; overflow: hidden;\">    <!-- HEADER -->    <tr>        <td style=\"padding: 32px; border-bottom: 1px solid #E5E5E5;\">            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                <tr>                    <td style=\"font-size: 12px; font-weight: 600; color: #78EF63; text-transform: uppercase; letter-spacing: 0.5px;\">                        NAF SUPPORT                    </td>                </tr>                <tr>                    <td style=\"font-size: 26px; font-weight: 600; color: #152D18; padding-top: 12px;\">                        We received your request                    </td>                </tr>                <tr>                    <td style=\"font-size: 14px; color: #8C8C8C; padding-top: 4px;\">                        {{ $(\\'Webhook\\').item.json.body.ticketRef }} &bull; {{ $(\\'Webhook\\').item.json.body.subject }}                    </td>                </tr>            </table>        </td>    </tr>    <!-- BODY -->    <tr>        <td style=\"padding: 32px; color: #393B39; font-size: 15px; line-height: 24px;\">            Hello {{ $(\\'Webhook\\').item.json.body.toName }},<br><br>Thank you for contacting NAF Support. Your request is with us, and our team will review it.                        <!-- DETAILS BOX -->            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: #F8F9F8; border-radius: 8px; border: 1px solid #EAEAEA; margin: 24px 0;\">                <tr>                    <td style=\"padding: 24px;\">                        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Reference</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.ticketRef }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Subject</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.subject }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Request type</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.requestType }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"color: #8C8C8C; font-size: 13px;\">Status</td>                                <td style=\"color: #152D18; font-size: 13px; font-weight: 600;\">Open</td>                            </tr>                        </table>                    </td>                </tr>            </table>                        You can reply to this email to add information, photos or other details that may help us understand your request.                                    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top: 24px;\">                <tr>                    <td align=\"center\" bgcolor=\"#78EF63\" style=\"border-radius: 6px;\">                        <a href=\"mailto:support@naf-halsbach.de?subject=Re: {{ $(\\'Webhook\\').item.json.body.subject }} ({{ $(\\'Webhook\\').item.json.body.ticketRef }})\" target=\"_blank\" style=\"display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: #0C0D0E; text-decoration: none; font-weight: 600; border-radius: 6px;\">                            Reply to this email                        </a>                    </td>                </tr>            </table>                        <p style=\"margin-top: 24px; font-size: 13px; color: #A0A8AD;\">                Keep <strong>{{ $(\\'Webhook\\').item.json.body.ticketRef }}</strong> in the subject so we can keep your conversation together.            </p>                        <p style=\"margin-top: 32px; margin-bottom: 0;\">                With warm regards,<br>                <strong>Your NAF Germany support team</strong>            </p>        </td>    </tr>    <!-- FOOTER -->    <tr>        <td style=\"background-color: #1A1A1A; padding: 40px 32px; text-align: center; color: #FFFFFF;\">                        <p style=\"margin: 0 0 16px 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 16px;\">                You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.<br><br>                If you did not initiate this action or believe this email was sent in error, please contact our support team.            </p>                        <p style=\"margin: 0 0 24px 0; font-size: 11px; color: rgba(255,255,255,0.8); line-height: 18px;\">                <strong>NAF — New Age of Food GmbH</strong><br>                Obere Straße 3, 09599 Freiberg, OT Halsbach<br>                Sales: info@naf-halsbach.de &bull; Support: support@naf-halsbach.de<br>                Phone: 0152 — 28387141            </p>                        <p style=\"margin: 0; font-size: 10px; color: rgba(255,255,255,0.4);\">                &copy; 2026 NAF — New Age of Food GmbH. All Rights Reserved.            </p>        </td>    </tr></table></body></html>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        -300
+      ],
+      "id": "set-received",
+      "name": "Set Ticket Received HTML"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>[Ticket reference] In Progress</title></head><body style=\"margin: 0; padding: 40px 20px; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif;\"><!-- Preheader (Hidden) --><div style=\"display: none; max-height: 0px; overflow: hidden;\">Our team has started reviewing [Ticket reference].</div><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 600px; margin: 0 auto; background-color: #FFFFFF; overflow: hidden;\">    <!-- HEADER -->    <tr>        <td style=\"padding: 32px; border-bottom: 1px solid #E5E5E5;\">            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                <tr>                    <td style=\"font-size: 12px; font-weight: 600; color: #78EF63; text-transform: uppercase; letter-spacing: 0.5px;\">                        NAF SUPPORT                    </td>                </tr>                <tr>                    <td style=\"font-size: 26px; font-weight: 600; color: #B56D00; padding-top: 12px;\">                        We are on it                    </td>                </tr>                <tr>                    <td style=\"font-size: 14px; color: #8C8C8C; padding-top: 4px;\">                        {{ $(\\'Webhook\\').item.json.body.ticketRef }} &bull; {{ $(\\'Webhook\\').item.json.body.subject }}                    </td>                </tr>            </table>        </td>    </tr>    <!-- BODY -->    <tr>        <td style=\"padding: 32px; color: #393B39; font-size: 15px; line-height: 24px;\">            Hello {{ $(\\'Webhook\\').item.json.body.toName }},<br><br>Our support team has started working on your request. We will keep you updated in this email conversation.                        <!-- DETAILS BOX -->            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: #F8F9F8; border-radius: 8px; border: 1px solid #EAEAEA; margin: 24px 0;\">                <tr>                    <td style=\"padding: 24px;\">                        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Reference</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.ticketRef }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Subject</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.subject }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Request type</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.requestType }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"color: #8C8C8C; font-size: 13px;\">Status</td>                                <td style=\"color: #B56D00; font-size: 13px; font-weight: 600;\">In Progress</td>                            </tr>                        </table>                    </td>                </tr>            </table>                        You do not need to submit another ticket. If you have new information, reply here and we will add it to your existing request.                                    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top: 24px;\">                <tr>                    <td align=\"center\" bgcolor=\"#78EF63\" style=\"border-radius: 6px;\">                        <a href=\"mailto:support@naf-halsbach.de?subject=Re: {{ $(\\'Webhook\\').item.json.body.subject }} ({{ $(\\'Webhook\\').item.json.body.ticketRef }})\" target=\"_blank\" style=\"display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: #0C0D0E; text-decoration: none; font-weight: 600; border-radius: 6px;\">                            Reply to this email                        </a>                    </td>                </tr>            </table>                        <p style=\"margin-top: 24px; font-size: 13px; color: #A0A8AD;\">                Keep <strong>{{ $(\\'Webhook\\').item.json.body.ticketRef }}</strong> in the subject so we can keep your conversation together.            </p>                        <p style=\"margin-top: 32px; margin-bottom: 0;\">                With warm regards,<br>                <strong>Your NAF Germany support team</strong>            </p>        </td>    </tr>    <!-- FOOTER -->    <tr>        <td style=\"background-color: #1A1A1A; padding: 40px 32px; text-align: center; color: #FFFFFF;\">                        <p style=\"margin: 0 0 16px 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 16px;\">                You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.<br><br>                If you did not initiate this action or believe this email was sent in error, please contact our support team.            </p>                        <p style=\"margin: 0 0 24px 0; font-size: 11px; color: rgba(255,255,255,0.8); line-height: 18px;\">                <strong>NAF — New Age of Food GmbH</strong><br>                Obere Straße 3, 09599 Freiberg, OT Halsbach<br>                Sales: info@naf-halsbach.de &bull; Support: support@naf-halsbach.de<br>                Phone: 0152 — 28387141            </p>                        <p style=\"margin: 0; font-size: 10px; color: rgba(255,255,255,0.4);\">                &copy; 2026 NAF — New Age of Food GmbH. All Rights Reserved.            </p>        </td>    </tr></table></body></html>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        -150
+      ],
+      "id": "set-inprogress",
+      "name": "Set In Progress HTML"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>[Ticket reference] Support reply</title></head><body style=\"margin: 0; padding: 40px 20px; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif;\"><!-- Preheader (Hidden) --><div style=\"display: none; max-height: 0px; overflow: hidden;\">You have a new response about [Ticket reference].</div><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 600px; margin: 0 auto; background-color: #FFFFFF; overflow: hidden;\">    <!-- HEADER -->    <tr>        <td style=\"padding: 32px; border-bottom: 1px solid #E5E5E5;\">            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                <tr>                    <td style=\"font-size: 12px; font-weight: 600; color: #78EF63; text-transform: uppercase; letter-spacing: 0.5px;\">                        NAF SUPPORT                    </td>                </tr>                <tr>                    <td style=\"font-size: 26px; font-weight: 600; color: #152D18; padding-top: 12px;\">                        A reply from NAF Support                    </td>                </tr>                <tr>                    <td style=\"font-size: 14px; color: #8C8C8C; padding-top: 4px;\">                        {{ $(\\'Webhook\\').item.json.body.ticketRef }} &bull; {{ $(\\'Webhook\\').item.json.body.subject }}                    </td>                </tr>            </table>        </td>    </tr>    <!-- BODY -->    <tr>        <td style=\"padding: 32px; color: #393B39; font-size: 15px; line-height: 24px;\">            Hello {{ $(\\'Webhook\\').item.json.body.toName }},<br><br>Our support team has replied to your request.                        <!-- DETAILS BOX -->            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: #F8F9F8; border-radius: 8px; border: 1px solid #EAEAEA; margin: 24px 0;\">                <tr>                    <td style=\"padding: 24px;\">                        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Reference</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.ticketRef }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Subject</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.subject }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Request type</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.requestType }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"color: #8C8C8C; font-size: 13px;\">Status</td>                                <td style=\"color: #152D18; font-size: 13px; font-weight: 600;\">{{ $(\\'Webhook\\').item.json.body.ticketStatus }}</td>                            </tr>                        </table>                    </td>                </tr>            </table>                        {{ $(\\'Webhook\\').item.json.body.message.replace(/\\n/g, \\'<br>\\') }}<br><br><i>[Answer, next steps, or information needed from the customer.]</i>                                    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top: 24px;\">                <tr>                    <td align=\"center\" bgcolor=\"#78EF63\" style=\"border-radius: 6px;\">                        <a href=\"mailto:support@naf-halsbach.de?subject=Re: {{ $(\\'Webhook\\').item.json.body.subject }} ({{ $(\\'Webhook\\').item.json.body.ticketRef }})\" target=\"_blank\" style=\"display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: #0C0D0E; text-decoration: none; font-weight: 600; border-radius: 6px;\">                            Reply to this email                        </a>                    </td>                </tr>            </table>                        <p style=\"margin-top: 24px; font-size: 13px; color: #A0A8AD;\">                Keep <strong>{{ $(\\'Webhook\\').item.json.body.ticketRef }}</strong> in the subject so we can keep your conversation together.            </p>                        <p style=\"margin-top: 32px; margin-bottom: 0;\">                With warm regards,<br>                <strong>Your NAF Germany support team</strong>            </p>        </td>    </tr>    <!-- FOOTER -->    <tr>        <td style=\"background-color: #1A1A1A; padding: 40px 32px; text-align: center; color: #FFFFFF;\">                        <p style=\"margin: 0 0 16px 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 16px;\">                You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.<br><br>                If you did not initiate this action or believe this email was sent in error, please contact our support team.            </p>                        <p style=\"margin: 0 0 24px 0; font-size: 11px; color: rgba(255,255,255,0.8); line-height: 18px;\">                <strong>NAF — New Age of Food GmbH</strong><br>                Obere Straße 3, 09599 Freiberg, OT Halsbach<br>                Sales: info@naf-halsbach.de &bull; Support: support@naf-halsbach.de<br>                Phone: 0152 — 28387141            </p>                        <p style=\"margin: 0; font-size: 10px; color: rgba(255,255,255,0.4);\">                &copy; 2026 NAF — New Age of Food GmbH. All Rights Reserved.            </p>        </td>    </tr></table></body></html>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        0
+      ],
+      "id": "set-reply",
+      "name": "Set Support Reply HTML"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>[Ticket reference] Ticket closed</title></head><body style=\"margin: 0; padding: 40px 20px; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif;\"><!-- Preheader (Hidden) --><div style=\"display: none; max-height: 0px; overflow: hidden;\">Review the outcome for [Ticket reference].</div><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 600px; margin: 0 auto; background-color: #FFFFFF; overflow: hidden;\">    <!-- HEADER -->    <tr>        <td style=\"padding: 32px; border-bottom: 1px solid #E5E5E5;\">            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                <tr>                    <td style=\"font-size: 12px; font-weight: 600; color: #78EF63; text-transform: uppercase; letter-spacing: 0.5px;\">                        NAF SUPPORT                    </td>                </tr>                <tr>                    <td style=\"font-size: 26px; font-weight: 600; color: #393B39; padding-top: 12px;\">                        Your ticket is closed                    </td>                </tr>                <tr>                    <td style=\"font-size: 14px; color: #8C8C8C; padding-top: 4px;\">                        {{ $(\\'Webhook\\').item.json.body.ticketRef }} &bull; {{ $(\\'Webhook\\').item.json.body.subject }}                    </td>                </tr>            </table>        </td>    </tr>    <!-- BODY -->    <tr>        <td style=\"padding: 32px; color: #393B39; font-size: 15px; line-height: 24px;\">            Hello {{ $(\\'Webhook\\').item.json.body.toName }},<br><br>Our team has completed your request and marked this ticket as Closed.                        <!-- DETAILS BOX -->            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: #F8F9F8; border-radius: 8px; border: 1px solid #EAEAEA; margin: 24px 0;\">                <tr>                    <td style=\"padding: 24px;\">                        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Reference</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.ticketRef }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Subject</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.subject }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Request type</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.requestType }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"color: #8C8C8C; font-size: 13px;\">Status</td>                                <td style=\"color: #393B39; font-size: 13px; font-weight: 600;\">Closed</td>                            </tr>                        </table>                    </td>                </tr>            </table>                        {{resolution_summary}}<br><br>If you still need help with this request, reply to this email and our team will review it.                                    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top: 24px;\">                <tr>                    <td align=\"center\" bgcolor=\"#78EF63\" style=\"border-radius: 6px;\">                        <a href=\"mailto:support@naf-halsbach.de?subject=Re: {{ $(\\'Webhook\\').item.json.body.subject }} ({{ $(\\'Webhook\\').item.json.body.ticketRef }})\" target=\"_blank\" style=\"display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: #0C0D0E; text-decoration: none; font-weight: 600; border-radius: 6px;\">                            Reply to this email                        </a>                    </td>                </tr>            </table>                        <p style=\"margin-top: 24px; font-size: 13px; color: #A0A8AD;\">                Keep <strong>{{ $(\\'Webhook\\').item.json.body.ticketRef }}</strong> in the subject so we can keep your conversation together.            </p>                        <p style=\"margin-top: 32px; margin-bottom: 0;\">                With warm regards,<br>                <strong>Your NAF Germany support team</strong>            </p>        </td>    </tr>    <!-- FOOTER -->    <tr>        <td style=\"background-color: #1A1A1A; padding: 40px 32px; text-align: center; color: #FFFFFF;\">                        <p style=\"margin: 0 0 16px 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 16px;\">                You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.<br><br>                If you did not initiate this action or believe this email was sent in error, please contact our support team.            </p>                        <p style=\"margin: 0 0 24px 0; font-size: 11px; color: rgba(255,255,255,0.8); line-height: 18px;\">                <strong>NAF — New Age of Food GmbH</strong><br>                Obere Straße 3, 09599 Freiberg, OT Halsbach<br>                Sales: info@naf-halsbach.de &bull; Support: support@naf-halsbach.de<br>                Phone: 0152 — 28387141            </p>                        <p style=\"margin: 0; font-size: 10px; color: rgba(255,255,255,0.4);\">                &copy; 2026 NAF — New Age of Food GmbH. All Rights Reserved.            </p>        </td>    </tr></table></body></html>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        150
+      ],
+      "id": "set-closed",
+      "name": "Set Ticket Closed HTML"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>[Ticket reference] Ticket reopened</title></head><body style=\"margin: 0; padding: 40px 20px; background-color: #F4F6F8; font-family: -apple-system, BlinkMacSystemFont, \\'Segoe UI\\', Roboto, Helvetica, Arial, sans-serif;\"><!-- Preheader (Hidden) --><div style=\"display: none; max-height: 0px; overflow: hidden;\">We will continue helping with [Ticket reference].</div><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"max-width: 600px; margin: 0 auto; background-color: #FFFFFF; overflow: hidden;\">    <!-- HEADER -->    <tr>        <td style=\"padding: 32px; border-bottom: 1px solid #E5E5E5;\">            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                <tr>                    <td style=\"font-size: 12px; font-weight: 600; color: #78EF63; text-transform: uppercase; letter-spacing: 0.5px;\">                        NAF SUPPORT                    </td>                </tr>                <tr>                    <td style=\"font-size: 26px; font-weight: 600; color: #152D18; padding-top: 12px;\">                        Let\\'s continue helping you                    </td>                </tr>                <tr>                    <td style=\"font-size: 14px; color: #8C8C8C; padding-top: 4px;\">                        {{ $(\\'Webhook\\').item.json.body.ticketRef }} &bull; {{ $(\\'Webhook\\').item.json.body.subject }}                    </td>                </tr>            </table>        </td>    </tr>    <!-- BODY -->    <tr>        <td style=\"padding: 32px; color: #393B39; font-size: 15px; line-height: 24px;\">            Hello {{ $(\\'Webhook\\').item.json.body.toName }},<br><br>Your ticket has been reopened. We will continue reviewing your request in this same conversation.                        <!-- DETAILS BOX -->            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: #F8F9F8; border-radius: 8px; border: 1px solid #EAEAEA; margin: 24px 0;\">                <tr>                    <td style=\"padding: 24px;\">                        <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Reference</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.ticketRef }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Subject</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.subject }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"padding-bottom: 12px; color: #8C8C8C; font-size: 13px;\">Request type</td>                                <td style=\"padding-bottom: 12px; color: #252A25; font-size: 13px; font-weight: 500;\">{{ $(\\'Webhook\\').item.json.body.requestType }}</td>                            </tr>                            <tr>                                <td width=\"130\" style=\"color: #8C8C8C; font-size: 13px;\">Status</td>                                <td style=\"color: #152D18; font-size: 13px; font-weight: 600;\">Open</td>                            </tr>                        </table>                    </td>                </tr>            </table>                        You can reply with any new details. Your original reference and previous messages stay with this ticket.                                    <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top: 24px;\">                <tr>                    <td align=\"center\" bgcolor=\"#78EF63\" style=\"border-radius: 6px;\">                        <a href=\"mailto:support@naf-halsbach.de?subject=Re: {{ $(\\'Webhook\\').item.json.body.subject }} ({{ $(\\'Webhook\\').item.json.body.ticketRef }})\" target=\"_blank\" style=\"display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; color: #0C0D0E; text-decoration: none; font-weight: 600; border-radius: 6px;\">                            Reply to this email                        </a>                    </td>                </tr>            </table>                        <p style=\"margin-top: 24px; font-size: 13px; color: #A0A8AD;\">                Keep <strong>{{ $(\\'Webhook\\').item.json.body.ticketRef }}</strong> in the subject so we can keep your conversation together.            </p>                        <p style=\"margin-top: 32px; margin-bottom: 0;\">                With warm regards,<br>                <strong>Your NAF Germany support team</strong>            </p>        </td>    </tr>    <!-- FOOTER -->    <tr>        <td style=\"background-color: #1A1A1A; padding: 40px 32px; text-align: center; color: #FFFFFF;\">                        <p style=\"margin: 0 0 16px 0; font-size: 11px; color: rgba(255,255,255,0.6); line-height: 16px;\">                You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.<br><br>                If you did not initiate this action or believe this email was sent in error, please contact our support team.            </p>                        <p style=\"margin: 0 0 24px 0; font-size: 11px; color: rgba(255,255,255,0.8); line-height: 18px;\">                <strong>NAF — New Age of Food GmbH</strong><br>                Obere Straße 3, 09599 Freiberg, OT Halsbach<br>                Sales: info@naf-halsbach.de &bull; Support: support@naf-halsbach.de<br>                Phone: 0152 — 28387141            </p>                        <p style=\"margin: 0; font-size: 10px; color: rgba(255,255,255,0.4);\">                &copy; 2026 NAF — New Age of Food GmbH. All Rights Reserved.            </p>        </td>    </tr></table></body></html>' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        300
+      ],
+      "id": "set-reopened",
+      "name": "Set Ticket Reopened HTML"
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $('Webhook').item.json.body.to }}",
+        "subject": "={{ $('Webhook').item.json.body.subject }}",
+        "bodyContent": "={{ $json.html_body }}",
+        "isHtml": true,
+        "additionalFields": {
+          "attachments": {
+            "attachments": [
+              {
+                "binaryPropertyName": "attachments"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        650,
+        0
+      ],
+      "id": "outlook-node",
+      "name": "Send Email via Outlook1",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, to: $('Webhook').item.json.body.to, subject: $('Webhook').item.json.body.subject }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        850,
+        0
+      ],
+      "id": "respond-node",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [
+          {
+            "node": "Set Ticket Received HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set In Progress HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Support Reply HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Ticket Closed HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Ticket Reopened HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Received HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Outlook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set In Progress HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Outlook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Support Reply HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Outlook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Closed HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Outlook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Reopened HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Outlook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email via Outlook1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
