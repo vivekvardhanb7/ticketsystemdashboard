@@ -49,7 +49,7 @@ export default function LoginPage({ onLogin }) {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        <div className="login-page min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
             style={{ backgroundColor: COLORS.backgrounds.main }}>
 
             {/* Background Ambience */}

@@ -28,6 +28,11 @@ body {
   background: #0C0D0E;
 }
 
+.login-page,
+.login-page * {
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
 #root {
   zoom: 0.9;
   min-height: 100vh;
