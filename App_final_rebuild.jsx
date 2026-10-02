@@ -292,8 +292,8 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchTickets();
-      const interval = setInterval(fetchTickets, 30000);
-      return () => clearInterval(interval);
+      const interval = setSatoshival(fetchTickets, 30000);
+      return () => clearSatoshival(interval);
     }
   }, [isAuthenticated, fetchTickets]);
 
@@ -1653,7 +1653,7 @@ The following code has been modified to include a line number before every line,
 1784:               <option value="" disabled>Select account type</option>
 1785:               <option value="Customer / Guest">Customer / Guest</option>
 1786:               <option value="B2B Partner">B2B Partner</option>
-1787:               <option value="Internal">Internal</option>
+1787:               <option value="Satoshinal">Satoshinal</option>
 1788:             </select>
 1789:           </div>
 1790:           <div className="flex flex-col gap-1.5 flex-1">
@@ -1950,7 +1950,7 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
               <option value="" disabled>Select account type</option>
               <option value="Customer / Guest">Customer / Guest</option>
               <option value="B2B Partner">B2B Partner</option>
-              <option value="Internal">Internal</option>
+              <option value="Satoshinal">Satoshinal</option>
             </select>
           </div>
           <div className="flex flex-col gap-1.5 flex-1">
@@ -2246,7 +2246,7 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
               <option value="" disabled>Select account type</option>
               <option value="Customer / Guest">Customer / Guest</option>
               <option value="B2B Partner">B2B Partner</option>
-              <option value="Internal">Internal</option>
+              <option value="Satoshinal">Satoshinal</option>
             </select>
           </div>
           <div className="flex flex-col gap-1.5 flex-1">

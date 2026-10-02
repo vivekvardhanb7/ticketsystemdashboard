@@ -34,6 +34,7 @@ import { COLORS, getAuthHeaders, timeAgo } from './designTokens';
 
 const TICKETS_PER_PAGE = 10;
 const N8N_TICKET_EVENTS_URL = import.meta.env.VITE_N8N_TICKET_EVENTS_URL || 'https://n8n.naf-cloudsystem.de/webhook/ticket-events';
+const N8N_WHATSAPP_TICKET_EVENTS_URL = import.meta.env.VITE_N8N_WHATSAPP_TICKET_EVENTS_URL || 'https://n8n.naf-cloudsystem.de/webhook/whatsapp-ticket-events';
 const DISPLAY_TIME_ZONE = 'Europe/Berlin';
 
 function normalizeApiTimestamp(value) {
@@ -93,13 +94,21 @@ function formatTicketDate(value) {
 
 function getAttachmentPreviewUrl(attachment) {
   if (!attachment) return '';
-  const directUrl = attachment.url || attachment.previewUrl || attachment.fileUrl || attachment.downloadUrl || attachment.path || attachment.filePath || '';
+  const directUrl = attachment.url
+    || attachment.dataUrl
+    || attachment.previewUrl
+    || attachment.fileUrl
+    || attachment.downloadUrl
+    || attachment.path
+    || attachment.filePath
+    || '';
   if (directUrl) return directUrl;
 
-  const rawData = attachment.data || attachment.base64 || attachment.content || '';
+  const rawData = attachment.data || attachment.base64 || attachment.base64Data || attachment.content || '';
   if (!rawData || typeof rawData !== 'string') return '';
   if (rawData.startsWith('data:')) return rawData;
-  if (attachment.type?.startsWith('image')) return `data:${attachment.type};base64,${rawData}`;
+  const mimeType = attachment.type || attachment.mimeType || attachment.contentType || '';
+  if (mimeType.startsWith('image')) return `data:${mimeType};base64,${rawData}`;
   return '';
 }
 
@@ -122,6 +131,14 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
   reader.onerror = reject;
   reader.readAsDataURL(file);
 });
+
+const localFilePreviewUrls = new WeakMap();
+
+function getLocalFilePreviewUrl(file) {
+  if (!file || !file.type?.startsWith('image/')) return '';
+  if (!localFilePreviewUrls.has(file)) localFilePreviewUrls.set(file, URL.createObjectURL(file));
+  return localFilePreviewUrls.get(file);
+}
 
 let attachmentPreviewDbPromise;
 
@@ -184,8 +201,18 @@ async function hydrateAttachmentPreviews(ticketId, history) {
     return history.map(email => ({
       ...email,
       attachments: (email.attachments || []).map(attachment => {
-        const record = records.find(item => item.name === attachment.name && Number(item.size) === Number(attachment.size));
-        return record ? { ...attachment, type: attachment.type || record.type, url: record.dataUrl } : attachment;
+        const attachmentName = String(attachment.name || '').trim().toLowerCase();
+        const attachmentSize = Number(attachment.size || 0);
+        const record = records.find(item => {
+          const recordName = String(item.name || '').trim().toLowerCase();
+          const recordSize = Number(item.size || 0);
+          const sameName = attachmentName && recordName && attachmentName === recordName;
+          const sameSize = attachmentSize > 0 && recordSize > 0 && attachmentSize === recordSize;
+          return sameName && (sameSize || attachmentSize === 0 || recordSize === 0);
+        });
+        return record
+          ? { ...attachment, type: attachment.type || record.type, url: attachment.url || record.dataUrl }
+          : attachment;
       })
     }));
   } catch (error) {
@@ -196,14 +223,34 @@ async function hydrateAttachmentPreviews(ticketId, history) {
 
 async function notifyTicketEvent(ticket, eventType, extra = {}) {
   const { message, attachments, ...eventFields } = extra;
+  const rawChannel = String(ticket.channel || ticket.source || '').trim();
+  const ticketPhone = ticket.phone || ticket.whatsappNumber || ticket.recipientPhoneNumber || '';
+  const channel = rawChannel
+    ? normalizeChannel(rawChannel)
+    : (ticketPhone && !ticket.email ? 'WhatsApp' : 'Website form');
+  const isWhatsApp = channel === 'WhatsApp';
+  const normalizedTicketPhone = isWhatsApp ? normalizeWhatsAppPhone(ticketPhone) : ticketPhone;
+  const ticketRef = ticket.ticketId || ticket.ticketReference || ticket.ticketNumber || ticket.id || '';
+  const recipient = eventFields.to || (isWhatsApp
+    ? normalizedTicketPhone
+    : ticket.email || '');
+  if (isWhatsApp && !String(recipient).trim()) {
+    throw new Error(`WhatsApp ticket ${ticketRef || ticket.id || ''} has no phone number`);
+  }
+  if (!isWhatsApp && !String(recipient).trim()) {
+    throw new Error(`Website/email ticket ${ticketRef || ticket.id || ''} has no customer email address`);
+  }
   const payload = {
     eventType,
     ticketStatus: eventFields.ticketStatus || ticket.status || 'OPEN',
-    to: ticket.email || '',
+    channel,
+    to: recipient,
+    phone: normalizedTicketPhone,
+    email: ticket.email || '',
     toName: ticket.contactPerson || ticket.fullName || '',
     subject: eventFields.subject || ticket.subject || ticket.ticketId || '',
-    ticketId: ticket.id || '',
-    ticketRef: ticket.ticketId || ticket.ticketReference || ticket.id || '',
+    ticketId: ticket.id || ticket.ticketId || '',
+    ticketRef,
     requestType: ticket.requestType || 'Support Request',
     ...eventFields,
   };
@@ -213,13 +260,16 @@ async function notifyTicketEvent(ticket, eventType, extra = {}) {
     payload.attachments = await Promise.all(attachments.map(fileToBase64));
   }
 
-  const response = await fetch(N8N_TICKET_EVENTS_URL, {
+  const response = await fetch(isWhatsApp ? N8N_WHATSAPP_TICKET_EVENTS_URL : N8N_TICKET_EVENTS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok) throw new Error(`n8n returned ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`n8n returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ''}`);
+  }
   return true;
 }
 
@@ -309,6 +359,36 @@ function normalizeChannel(value) {
   if (channel.includes('whatsapp')) return 'WhatsApp';
   if (channel.includes('email')) return 'Email';
   return 'Website form';
+}
+
+function extractEmailAddress(...values) {
+  for (const value of values) {
+    if (!value) continue;
+    if (typeof value === 'object') {
+      const nested = extractEmailAddress(
+        value.emailAddress,
+        value.address,
+        value.email,
+        value.value,
+        value.contact,
+        value.requester,
+        value.customer
+      );
+      if (nested) return nested;
+      continue;
+    }
+    const match = String(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    if (match) return match[0];
+  }
+  return '';
+}
+
+function normalizeWhatsAppPhone(value) {
+  const raw = String(value || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 10) return `+91${digits}`;
+  return `+${digits}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -428,17 +508,25 @@ export default function App() {
         // Handle potentially re-mapped fields from backend
         const descText = item.description || item.bodyPreview || "";
         
-        let extractedEmail = item.email || item.from || item.senderEmail || item.customerEmail || item.contactEmail || "";
+        const extractedEmail = extractEmailAddress(
+          item.email,
+          item.from,
+          item.senderEmail,
+          item.customerEmail,
+          item.contactEmail,
+          item.requesterEmail,
+          item.emailAddress,
+          item.issueData?.email,
+          item.issueData?.contactEmail,
+          item.issueData?.contactDetails?.email,
+          item.data?.email,
+          item.data?.contactEmail,
+          item.data?.contactDetails?.email,
+          item.customer?.email,
+          item.contact?.email,
+          item.requester?.email
+        );
         let contactName = item.fullName || item.contactPerson || item.senderName || "";
-        
-        if (typeof extractedEmail === 'object') {
-           // Microsoft Graph format
-           contactName = contactName || extractedEmail.emailAddress?.name || "";
-           extractedEmail = extractedEmail.emailAddress?.address || "";
-        } else if (typeof item.from === 'object') {
-           contactName = contactName || item.from?.emailAddress?.name || "";
-           extractedEmail = extractedEmail || item.from?.emailAddress?.address || "";
-        }
 
         if (!contactName && typeof extractedEmail === 'string' && extractedEmail) {
           const emailNameMatch = extractedEmail.match(/^([^<@]+)/);
@@ -464,25 +552,68 @@ export default function App() {
           if (locMatch) parsedLocation = locMatch[1].trim();
         }
 
-          const rawChannel = String(item.source || item.channel || '').trim().toLowerCase();
-          const normalizedChannel = normalizeChannel(rawChannel);
+          const rawPhone = item.phoneNumber
+            || item.phone
+            || item.whatsappNumber
+            || item.recipientPhoneNumber
+            || item.issueData?.phoneNumber
+            || item.data?.phoneNumber
+            || item.customer?.phoneNumber
+            || '';
+          const machineLocation = item.machineLocation
+            || item.location
+            || item.machineId
+            || item.issueData?.machineLocation
+            || item.issueData?.location
+            || item.data?.machineLocation
+            || item.data?.location
+            || parsedLocation
+            || 'N/A';
+          const rawEmail = extractedEmail;
+          const rawChannel = String(
+            item.source
+            || item.channel
+            || item.issueData?.source
+            || item.data?.source
+            || ''
+          ).trim().toLowerCase();
+          const normalizedChannel = rawChannel
+            ? normalizeChannel(rawChannel)
+            : (rawPhone && !rawEmail ? 'WhatsApp' : 'Website form');
           const rawRequestType = String(item.requestType || '').trim().toLowerCase();
           const isEmailIntake = normalizedChannel === 'Email'
             && !rawChannel.includes('manual')
             && (!rawRequestType || rawRequestType === 'email support');
+          const apiTicketReference = [
+            item.ticketReference,
+            item.ticketRef,
+            item.ticketNumber,
+            item.issueReference,
+            item.issueNumber,
+            item.ticketId !== undefined && item.ticketId !== null ? String(item.ticketId) : ''
+          ].find(value => String(value || '').trim());
+          const displayTicketId = apiTicketReference
+            ? (String(apiTicketReference).toUpperCase().startsWith('NAF-')
+              ? String(apiTicketReference)
+              : `NAF-${apiTicketReference}`)
+            : `NAF-${year}-${1000 + numericId}`;
+          const normalizedPhone = normalizedChannel === 'WhatsApp'
+            ? normalizeWhatsAppPhone(rawPhone)
+            : rawPhone;
 
           return {
             id: item.id?.toString() || Math.random().toString(36),
-            ticketId: `NAF-${year}-${1000 + numericId}`,
+            ticketId: displayTicketId,
             contactPerson: contactName || "Unknown User",
-            email: typeof extractedEmail === 'string' ? extractedEmail : "",
-            phone: item.phoneNumber || item.phone || "",
+            email: extractedEmail,
+            phone: normalizedPhone,
             requestType: isEmailIntake ? "Other" : normalizeRequestType(item.requestType),
             problemType: item.subject || "Issue",
             subject: item.subject || "No Subject",
             description: descText,
-            location: parsedLocation || "N/A",
-            machineId: "N/A",
+            location: machineLocation,
+            machineLocation,
+            machineId: item.machineId || "N/A",
             accountType: isEmailIntake ? "Not collected" : (ACCOUNT_TYPE_MAPPING[item.accountType] || item.accountType || "Customer / Guest"),
             urgency: ["Normal"],
             status: String(item.status || "OPEN").toUpperCase(),
@@ -982,10 +1113,34 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
         }
         return prev;
       });
-      const updatedTicket = tickets.find((ticket) => ticket.id === ticketId);
-      notifyTicketEvent({ ...updatedTicket, id: ticketId, status: newStatus }, 'STATUS_CHANGED', { ticketStatus: newStatus })
-        .catch((error) => console.warn('n8n status event failed:', error.message));
-      setToast({ title: "Status Updated", message: `Ticket status changed to ${newStatus}` });
+      const updatedTicket = tickets.find((ticket) => ticket.id === ticketId) || { id: ticketId };
+      const ticketReference = updatedTicket.ticketId || ticketId;
+      const statusMessages = {
+        OPEN: `Your support ticket ${ticketReference} has been reopened. We will continue helping you.`,
+        IN_PROGRESS: `Your support ticket ${ticketReference} is now in progress. Our support team is working on it.`,
+        CLOSED: `Your support ticket ${ticketReference} has been closed. If you still need help, reply with this ticket reference.`
+      };
+      let notificationFailed = false;
+      try {
+        await notifyTicketEvent({ ...updatedTicket, id: ticketId, status: newStatus }, 'STATUS_CHANGED', {
+          ticketStatus: newStatus,
+          message: statusMessages[newStatus] || `Your support ticket ${ticketReference} status is now ${newStatus}.`
+        });
+      } catch (error) {
+        notificationFailed = true;
+        console.warn('n8n status event failed:', error.message);
+      }
+      const deliveryChannel = String(updatedTicket.channel || updatedTicket.source || '').trim() || 'Website form';
+      const deliveryDestination = deliveryChannel === 'WhatsApp'
+        ? updatedTicket.phone
+        : updatedTicket.email;
+      setToast({
+        title: notificationFailed ? `Status Saved, ${deliveryChannel} Notification Not Sent` : "Status Updated",
+        message: notificationFailed
+          ? `The ticket changed to ${newStatus}, but the customer notification failed: ${deliveryDestination || (deliveryChannel === 'WhatsApp' ? 'missing phone number' : 'missing email address')}`
+          : `Ticket status changed to ${newStatus}`,
+        variant: notificationFailed ? 'error' : undefined
+      });
     } catch (error) {
       console.error("Error updating status:", error);
       setToast({ title: "Update Failed", message: `Error: ${error.message}`, variant: 'error' });
@@ -1663,7 +1818,14 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
       
       await persistAttachmentPreviews(ticket.id, replyAttachments);
       await onEmailSent(ticket.id, newEmail);
-      setToast({ title: "Reply recorded", message: webhookSuccess ? `Reply event sent for ${ticket.email}` : 'Reply saved to the ticket conversation.' });
+      const destination = channel === 'WhatsApp' ? ticket.phone : ticket.email;
+      setToast({
+        title: webhookSuccess ? "Reply sent" : "Reply saved, delivery failed",
+        message: webhookSuccess
+          ? `Reply sent to ${destination || 'the customer'}`
+          : 'The reply was saved locally, but n8n could not deliver it to WhatsApp/email.',
+        variant: webhookSuccess ? undefined : 'error'
+      });
     } else {
       // Internal note
       const newEmail = {
@@ -1770,34 +1932,11 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
             {ticket.email && <span className="text-[10px] text-[#7A808C]">{ticket.email}</span>}
             {ticket.phone && <span className="text-[10px] text-[#7A808C]">{ticket.phone}</span>}
             <span className="text-[11px] text-[#A0A8AD]">{ACCOUNT_TYPE_MAPPING[ticket.accountType] || ticket.accountType || 'Customer / Guest'}</span>
-          </div>
-
-          {/* Related Context */}
-          <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
-            <span className="text-xs font-semibold text-[#D1D6DE]">Related context</span>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Transaction</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Payment</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Amount</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">—</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Machine</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.machineId || ticket.location || '—'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Location</span>
-              <span className="text-[10px] font-medium text-[#B8BDC7]">{ticket.location || '—'}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-[#6B707D]">Machine status</span>
-              <span className="text-[10px] font-medium text-[#61E557]">Online</span>
+            <div className="-mt-1 flex flex-col gap-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-[#6B707D]">Machine ID / Location</span>
+                <span className="max-w-[170px] text-right text-[10px] font-medium text-[#B8BDC7]">{ticket.machineLocation || (ticket.machineId && ticket.machineId !== 'N/A' ? ticket.machineId : ticket.location) || 'N/A'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1828,7 +1967,11 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                 <div key={i} className={`p-3.5 flex flex-col gap-[9px] rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
                   <div className="flex justify-between items-start">
                     <span className={`text-[10px] font-medium ${msgStyle.metaColor}`}>
-                      {isInternal ? 'Internal note' : isServiceTeam ? `${msg.senderName} · Internal` : `${msg.senderName} · ${isCustomer ? channel : 'Email'}`}
+                      {isInternal
+                        ? 'Internal note'
+                        : isServiceTeam
+                          ? `${msg.senderName} · Internal`
+                          : `${msg.senderName} · ${isCustomer ? channel : (channel === 'WhatsApp' ? 'WhatsApp' : 'Email')}`}
                     </span>
                     <span className="text-[10px] text-[#666B78]">{timeStr}</span>
                   </div>
@@ -1840,13 +1983,14 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                       {msg.attachments.map((att, j) => (
                         (() => {
                           const attachmentUrl = getAttachmentPreviewUrl(att);
-                          const isImageAttachment = att.type?.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(attachmentUrl || att.name || '');
+                          const attachmentType = att.type || att.mimeType || att.contentType || '';
+                          const isImageAttachment = attachmentType.startsWith('image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(attachmentUrl || att.name || '');
                           const attachmentLabel = att.name || attachmentUrl.split('/').pop() || 'Attachment';
                           const content = <><ImageIcon className="h-3 w-3" />{attachmentLabel} · {isImageAttachment ? 'Image' : 'File'}</>;
                           return attachmentUrl && isImageAttachment ? (
                             <button key={j} type="button" onClick={() => setPreviewAttachment({ ...att, url: attachmentUrl })}
                               className="flex w-fit max-w-[240px] flex-col items-start gap-2 rounded-[8px] border border-[#26352A] bg-[#0A100B] p-2 text-left text-[11px] text-[#78EF63] transition-colors hover:border-[#78EF63]/50">
-                              <img src={attachmentUrl} alt={attachmentLabel}
+                              <img src={attachmentUrl} alt={attachmentLabel} onError={(event) => { event.currentTarget.style.display = 'none'; }}
                                 className="h-[120px] w-[180px] rounded-[5px] border border-[#212429] object-cover" />
                               <span className="flex max-w-full items-center gap-1 truncate">{content}</span>
                             </button>
@@ -1890,7 +2034,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                   <textarea 
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder={replyMode === 'email' ? `Write a reply to ${ticket.contactPerson}…` : "Write an internal note…"}
+                    placeholder={replyMode === 'email' ? 'Write only the reply body. The email template already includes the greeting and closing.' : "Write an internal note…"}
                     className="w-full bg-transparent p-3.5 text-[12px] text-[#C4C9D1] outline-none resize-none min-h-[80px]"
                   />
                 </div>
@@ -1909,7 +2053,9 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                       <div className="flex flex-wrap gap-2">
                         {replyAttachments.map((file, index) => (
                           <div key={`${file.name}-${index}`} className="flex max-w-full items-center gap-2 rounded-[7px] border border-[#282C2F] bg-[#111315] px-2 py-1.5">
-                            {file.type === 'application/pdf' ? <FileText className="h-3 w-3 shrink-0 text-[#F5B24F]" /> : <ImageIcon className="h-3 w-3 shrink-0 text-[#78EF63]" />}
+                            {file.type?.startsWith('image/')
+                              ? <img src={getLocalFilePreviewUrl(file)} alt={file.name} className="h-8 w-8 shrink-0 rounded-[4px] border border-[#303631] object-cover" />
+                              : <FileText className="h-3 w-3 shrink-0 text-[#F5B24F]" />}
                             <span className="max-w-[170px] truncate text-[10px] text-[#C4C9D1]">{file.name}</span>
                             <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setReplyAttachments(prev => prev.filter((_, itemIndex) => itemIndex !== index))} className="text-[#7A808C] hover:text-white">
                               <X className="h-3 w-3" />
@@ -1923,7 +2069,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                 )}
                 
                 <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-[9px] text-[#575C66]">
+                  <span className="text-[10px] text-[#A0A8AD]">
                     {replyMode === 'email' 
                       ? (channel === 'WhatsApp' ? `To: ${ticket.phone} · Replies stay on WhatsApp.` : `To: ${ticket.email} · Replies stay on email.`)
                       : 'Notes are only visible to staff.'}
@@ -2070,7 +2216,7 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
 
           <div>
             <label className="text-xs font-medium opacity-50 block mb-1 force-satoshi text-white">Message</label>
-            <textarea required rows={4} value={message} onChange={e => setMessage(e.target.value)} className="w-full border border-transparent rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-[#7FEE64] force-satoshi" style={{ backgroundColor: COLORS.backgrounds.input }} placeholder="Type your response here..." />
+            <textarea required rows={4} value={message} onChange={e => setMessage(e.target.value)} className="w-full border border-transparent rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-[#7FEE64] force-satoshi" style={{ backgroundColor: COLORS.backgrounds.input }} placeholder="Write only the reply body. The email template already includes the greeting and closing." />
           </div>
 
           {/* Attachments */}

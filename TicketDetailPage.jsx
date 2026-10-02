@@ -21,15 +21,29 @@ export default function TicketDetailPage() {
         </div>
 
         <div className="flex items-center gap-[8px]">
-          <div className="flex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border border-[#245229] bg-[#122614] text-[#61ED54] text-[11px] font-medium">
-            Open
-          </div>
-          <button className="flex h-[34px] px-[12px] items-center gap-[8px] rounded-[7px] border border-[#345135] bg-[#78EF63] text-[#0C0D0E] text-[12px] font-medium hover:opacity-90 transition-opacity">
-            Start progress
-          </button>
-          <button className="flex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border border-[#572629] bg-[#291214] text-[#F58C91] text-[11px] font-medium hover:bg-[#3a181b] transition-colors">
-            Close ticket
-          </button>
+          <div className={lex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border text-[11px] font-medium }>
+              {ticket.status === 'OPEN' ? 'Open' : ticket.status === 'IN_PROGRESS' ? 'In Progress' : 'Closed'}
+            </div>
+          {ticket.status === 'OPEN' && (
+            <>
+              <button onClick={() => onStatusChange(ticket.id, 'IN_PROGRESS')} disabled={isUpdating} className="flex h-[34px] px-[12px] items-center gap-[8px] rounded-[7px] border border-[#345135] bg-[#78EF63] text-[#0C0D0E] text-[12px] font-medium hover:opacity-90 transition-opacity">
+                Start progress
+              </button>
+              <button onClick={() => onStatusChange(ticket.id, 'CLOSED')} disabled={isUpdating} className="flex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border border-[#572629] bg-[#291214] text-[#F58C91] text-[11px] font-medium hover:bg-[#3a181b] transition-colors">
+                Close ticket
+              </button>
+            </>
+          )}
+          {ticket.status === 'IN_PROGRESS' && (
+            <button onClick={() => onStatusChange(ticket.id, 'CLOSED')} disabled={isUpdating} className="flex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border border-[#572629] bg-[#291214] text-[#F58C91] text-[11px] font-medium hover:bg-[#3a181b] transition-colors">
+              Close ticket
+            </button>
+          )}
+          {ticket.status === 'CLOSED' && (
+            <button onClick={() => onStatusChange(ticket.id, 'OPEN')} disabled={isUpdating} className="flex py-[9px] px-[13px] items-center gap-[6px] rounded-[10px] border border-[#282C2F] bg-[#111315] text-[#B2B8C2] text-[11px] font-medium hover:bg-[#1a1c1e] transition-colors">
+              Reopen ticket
+            </button>
+          )}
         </div>
       </div>
 
@@ -133,11 +147,11 @@ export default function TicketDetailPage() {
             
             {/* Reply Modes */}
             <div className="flex items-start gap-[8px]">
-              <button className="flex py-[7px] px-[11px] items-start gap-[6px] rounded-[9px] border border-[#26522B] bg-[#142917] hover:bg-[#1a381e] transition-colors">
-                <span className="text-[#66EB5C] text-[10px] font-medium">Reply by email</span>
+              <button onClick={() => setReplyMode('channel')} className={lex py-[7px] px-[11px] items-start gap-[6px] rounded-[9px] border transition-colors }>
+                <span className="text-[10px] font-medium">Reply by {ticket.source === 'WhatsApp' ? 'WhatsApp' : 'email'}</span>
               </button>
-              <button className="flex py-[7px] px-[11px] items-start gap-[6px] rounded-[9px] border border-[#24262B] bg-[#0E0F10] hover:bg-[#1a1c1f] transition-colors">
-                <span className="text-[#8F94A1] text-[10px] font-medium">Internal note</span>
+              <button onClick={() => setReplyMode('internal')} className={lex py-[7px] px-[11px] items-start gap-[6px] rounded-[9px] border transition-colors }>
+                <span className="text-[10px] font-medium">Internal note</span>
               </button>
             </div>
 
@@ -145,18 +159,31 @@ export default function TicketDetailPage() {
             <div className="flex w-full p-[14px] items-start gap-[8px] rounded-[10px] bg-[#080809]">
               <textarea 
                 className="w-full bg-transparent border-none outline-none text-[#575C66] placeholder:text-[#575C66] text-[11px] font-normal resize-none focus:ring-0" 
-                placeholder="Write a reply to Sarah…"
+                placeholder={replyMode === 'internal' ? "Write an internal note..." : Write a reply to …}
                 rows={3}
+                value={message}
+                onChange={e => setMessage(e.target.value)}
               ></textarea>
             </div>
 
             {/* Composer Footer */}
             <div className="flex justify-between items-center w-full">
               <span className="text-[#575C66] text-[9px] font-normal">
-                To: sarah.klein@example.com · Replies stay on email.
+                {replyMode === 'internal' ? 'Notes are only visible to staff.' : To:  · Replies stay on .}
               </span>
-              <button className="flex py-[8px] px-[14px] items-center gap-[6px] rounded-[9px] bg-[#47EB3D] hover:bg-[#3eca35] transition-colors">
-                <span className="text-[#050A05] text-[10px] font-semibold">Send reply</span>
+              <button 
+                onClick={() => {
+                   if (!message.trim()) return;
+                   setSending(true);
+                   onEmailSent(message, replyMode === 'internal' ? 'Internal Note' : Reply to: )
+                     .then(() => { setMessage(''); setSending(false); })
+                     .catch(() => setSending(false));
+                }}
+                disabled={sending || ticket.status === 'CLOSED'}
+                className={lex py-[8px] px-[14px] items-center gap-[6px] rounded-[9px] transition-colors }>
+                <span className={${ticket.status === 'CLOSED' ? 'text-[#A0A8AD]' : 'text-[#050A05]'} text-[10px] font-semibold}>
+                  {sending ? 'Sending...' : (replyMode === 'internal' ? 'Add note' : 'Send reply')}
+                </span>
               </button>
             </div>
           </div>

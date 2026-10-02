@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import LanguageDropdown from './LanguageDropdown';
 
 // Reusable Stat Component
 const QueueStat = ({ label, value, subtitle, valueColor = "text-[#EFF2F0]" }) => (
@@ -86,6 +87,7 @@ const TicketRow = ({ ticket, isSelected, onClick }) => {
 
 export default function AdminDashboardView({ tickets, onNewTicket, onTicketClick }) {
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [langOpen, setLangOpen] = useState(false);
   
   const mappedTickets = tickets.map(t => ({
     id: t.id,
@@ -109,7 +111,7 @@ export default function AdminDashboardView({ tickets, onNewTicket, onTicketClick
 
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-[#0C0D0E] p-4 md:p-5 gap-5 font-['Inter',sans-serif]">
+    <div className="flex flex-col w-full min-h-screen bg-[#0C0D0E] p-4 md:p-5 gap-5 font-['Satoshi',sans-serif]">
       {/* Header */}
       <header className="flex w-full justify-between items-center shrink-0 mb-2">
         <div className="flex items-center gap-[10px]">
@@ -119,12 +121,19 @@ export default function AdminDashboardView({ tickets, onNewTicket, onTicketClick
           <span className="text-[#EDF0F2] text-[17px] font-semibold">NAF Support</span>
         </div>
         <div className="flex items-center gap-[10px]">
-          <div className="flex h-[38px] px-3 items-center gap-2 rounded-[7px] border border-[#282C2F]">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#A0A8AD"/>
-              <path d="M2 8H14M8 2C11.3333 5.33333 11.3333 10.6667 8 14C4.66667 10.6667 4.66667 5.33333 8 2Z" stroke="#A0A8AD"/>
-            </svg>
-            <span className="text-[#A0A8AD] text-[13px] font-medium">Language: English ↓</span>
+          <div className="relative">
+            <div onClick={() => setLangOpen(!langOpen)} className="flex h-[38px] px-3 items-center gap-2 rounded-[7px] border border-[#282C2F] cursor-pointer hover:bg-white/5 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8C2 11.3137 4.68629 14 8 14Z" stroke="#A0A8AD"/>
+                <path d="M2 8H14M8 2C11.3333 5.33333 11.3333 10.6667 8 14C4.66667 10.6667 4.66667 5.33333 8 2Z" stroke="#A0A8AD"/>
+              </svg>
+              <span className="text-[#A0A8AD] text-[13px] font-medium">Language: English ↓</span>
+            </div>
+            {langOpen && (
+              <div className="absolute top-[46px] right-0 z-50">
+                <LanguageDropdown />
+              </div>
+            )}
           </div>
           <div className="flex py-2 px-3 items-start gap-[6px] rounded-lg border border-[#26292E] bg-[#131416] cursor-pointer hover:bg-[#1a1b1e]">
             <span className="text-[#A8ADB8] text-[11px] font-medium">Admin</span>

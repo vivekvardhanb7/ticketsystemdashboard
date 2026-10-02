@@ -156,6 +156,60 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "https://n8n.naf-cloudsystem.de/webhook/ticket-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => { const response = $json || {}; const result = response.data || response.body || response.result || response.ticket || response; const rawRef = result.ticketReference || result.ticketNumber || result.ticketId || result.issueReference || result.issueNumber || result.issueId || result.reference || result.number || result.id || response.ticketReference || response.ticketNumber || response.ticketId || response.issueReference || response.issueNumber || response.issueId || response.reference || response.number || response.id || ''; const ref = String(rawRef); const ticketRef = ref && /^NAF-/i.test(ref) ? ref : (ref ? 'NAF-' + ref : ''); return { eventType: 'TICKET_RECEIVED', ticketStatus: 'OPEN', to: $('Extract Email Data2').item.json.email || '', toName: $('Extract Email Data2').item.json.fullName || '', subject: $('Extract Email Data2').item.json.subject || '', ticketId: ref, ticketRef, requestType: $('Extract Email Data2').item.json.requestType || 'Email Support' }; })()) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -304,
+        -1936
+      ],
+      "id": "notify-ticket-open-with-attachments",
+      "name": "Send Ticket Open Confirmation (With Attachments)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.naf-cloudsystem.de/webhook/ticket-events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => { const response = $json || {}; const result = response.data || response.body || response.result || response.ticket || response; const rawRef = result.ticketReference || result.ticketNumber || result.ticketId || result.issueReference || result.issueNumber || result.issueId || result.reference || result.number || result.id || response.ticketReference || response.ticketNumber || response.ticketId || response.issueReference || response.issueNumber || response.issueId || response.reference || response.number || response.id || ''; const ref = String(rawRef); const ticketRef = ref && /^NAF-/i.test(ref) ? ref : (ref ? 'NAF-' + ref : ''); return { eventType: 'TICKET_RECEIVED', ticketStatus: 'OPEN', to: $('Extract Email Data2').item.json.email || '', toName: $('Extract Email Data2').item.json.fullName || '', subject: $('Extract Email Data2').item.json.subject || '', ticketId: ref, ticketRef, requestType: $('Extract Email Data2').item.json.requestType || 'Email Support' }; })()) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -304,
+        -1744
+      ],
+      "id": "notify-ticket-open-without-attachments",
+      "name": "Send Ticket Open Confirmation (No Attachments)"
+    },
+    {
+      "parameters": {
         "operation": "update",
         "messageId": {
           "__rl": true,
@@ -255,6 +309,17 @@
       "main": [
         [
           {
+            "node": "Send Ticket Open Confirmation (With Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Ticket Open Confirmation (With Attachments)": {
+      "main": [
+        [
+          {
             "node": "Mark as Read",
             "type": "main",
             "index": 0
@@ -263,6 +328,17 @@
       ]
     },
     "Create Ticket (No Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Send Ticket Open Confirmation (No Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Ticket Open Confirmation (No Attachments)": {
       "main": [
         [
           {

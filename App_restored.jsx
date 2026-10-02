@@ -328,8 +328,8 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchTickets();
-      const interval = setInterval(fetchTickets, 30000);
-      return () => clearInterval(interval);
+      const interval = setSatoshival(fetchTickets, 30000);
+      return () => clearSatoshival(interval);
     }
   }, [isAuthenticated, fetchTickets]);
 

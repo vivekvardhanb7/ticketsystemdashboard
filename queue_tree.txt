@@ -1,0 +1,158 @@
+Layer: Queue controls / Expanded states | Tag: div | Style: display:flex;width:1120px;padding:32px;flex-direction:column;align-items:flex-start;gap:24px;background:#0C0D0E;overflow:hidden;position:absolute;left:0px;top:0px;height:1059px
+  Layer: Queue controls | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:24px;font-style:normal;font-weight:600;line-height:32px /* 133.333% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:24px;color:rgba(239,242,240,1)
+      Text: Queue controls
+  Layer: Complete support-form taxonomy and configurable ticket fields | Tag: div | Style: color:#A0A8AD;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(160,168,173,1)
+      Text: Complete support-form taxonomy and configurable ticket fields
+  Layer: Expanded menus | Tag: div | Style: display:flex;width:1056px;align-items:flex-start;gap:24px;overflow:hidden;position:relative
+    Layer: Request type | Tag: div | Style: display:flex;width:360px;padding:16px;flex-direction:column;align-items:flex-start;gap:10px;flex-shrink:0;border-radius:10px;border:1px solid #282C2F;background:#111315;overflow:hidden;position:relative
+      Layer: Request type | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:15px;font-style:normal;font-weight:600;line-height:20px /* 133.333% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:15px;color:rgba(239,242,240,1)
+          Text: Request type
+      Layer: Divider | Tag: div | Style: width:328px;height:1px;background:#282C2F;position:relative
+      Layer: All request types | Tag: div | Style: color:#78EF63;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(120,239,99,1)
+          Text: All request types
+      Layer: Machine Issue | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Machine Issue
+      Layer: Payment / Refund | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Payment / Refund
+      Layer: NAF Membership | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: NAF Membership
+      Layer: NAF Wallet | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: NAF Wallet
+      Layer: Mobile App | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Mobile App
+      Layer: NAF.Cloud | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: NAF.Cloud
+      Layer: Reservation / Pickup | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Reservation / Pickup
+      Layer: Complaint | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Complaint
+      Layer: Feedback / Suggestion | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Feedback / Suggestion
+      Layer: Partnership / Business Support | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Partnership / Business Support
+      Layer: Other | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+          Text: Other
+    Layer: Account and channel menus | Tag: div | Style: display:flex;width:284px;flex-direction:column;align-items:flex-start;gap:20px;flex-shrink:0;overflow:hidden;position:relative
+      Layer: Account type | Tag: div | Style: display:flex;width:284px;padding:16px;flex-direction:column;align-items:flex-start;gap:10px;border-radius:10px;border:1px solid #282C2F;background:#111315;overflow:hidden;position:relative
+        Layer: Account type | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:15px;font-style:normal;font-weight:600;line-height:20px /* 133.333% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:15px;color:rgba(239,242,240,1)
+            Text: Account type
+        Layer: Divider | Tag: div | Style: width:252px;height:1px;background:#282C2F;position:relative
+        Layer: All account types | Tag: div | Style: color:#78EF63;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(120,239,99,1)
+            Text: All account types
+        Layer: Customer / Guest | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Customer / Guest
+        Layer: NAF Member | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: NAF Member
+        Layer: Business / Partner | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Business / Partner
+        Layer: Other | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Other
+        Layer: Not collected | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Not collected
+      Layer: Source channel | Tag: div | Style: display:flex;width:284px;padding:16px;flex-direction:column;align-items:flex-start;gap:10px;border-radius:10px;border:1px solid #282C2F;background:#111315;overflow:hidden;position:relative
+        Layer: Source / channel | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:15px;font-style:normal;font-weight:600;line-height:20px /* 133.333% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:15px;color:rgba(239,242,240,1)
+            Text: Source / channel
+        Layer: All channels | Tag: div | Style: color:#78EF63;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(120,239,99,1)
+            Text: All channels
+        Layer: Website form | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Website form
+        Layer: Email | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: Email
+        Layer: WhatsApp | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+          Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+            Text: WhatsApp
+    Layer: Columns | Tag: div | Style: display:flex;width:364px;padding:16px;flex-direction:column;align-items:flex-start;gap:10px;flex-shrink:0;border-radius:10px;border:1px solid #282C2F;background:#111315;overflow:hidden;position:relative
+      Layer: Columns | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:15px;font-style:normal;font-weight:600;line-height:20px /* 133.333% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:15px;color:rgba(239,242,240,1)
+          Text: Columns
+      Layer: Divider | Tag: div | Style: width:332px;height:1px;background:#282C2F;position:relative
+      Layer: ✓  Reference ID + created date/time | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Reference ID + created date/time
+      Layer: ✓  Source / channel | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Source / channel
+      Layer: ✓  Subject + description preview | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Subject + description preview
+      Layer: ✓  Full name + email / phone | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Full name + email / phone
+      Layer: ✓  Account type | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Account type
+      Layer: ✓  Machine ID / Location | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Machine ID / Location
+      Layer: ✓  Request type | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Request type
+      Layer: ✓  Uploaded media indicator | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Uploaded media indicator
+      Layer: ✓  Status | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(239,242,240,1)
+          Text: ✓  Status
+      Layer: ＋  Phone number as separate column | Tag: div | Style: color:#A0A8AD;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(160,168,173,1)
+          Text: ＋  Phone number as separate column
+      Layer: ＋  Full message / description | Tag: div | Style: color:#A0A8AD;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+        Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(160,168,173,1)
+          Text: ＋  Full message / description
+  Layer: Intake handling | Tag: div | Style: color:#EFF2F0;font-family:Inter;font-size:15px;font-style:normal;font-weight:600;line-height:20px /* 133.333% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:600;font-size:15px;color:rgba(239,242,240,1)
+      Text: Intake handling
+  Layer: Website form: preserve the original field values, message and uploaded media. Phone and machine/location remain optional.
+Email: use sender, subject, message and attachments; collect missing account, request and machine details during triage.
+WhatsApp: use sender phone, messages and media; collect name, email, account type and machine details when needed. | Tag: div | Style: width:1056px;color:#A0A8AD;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(160,168,173,1)
+      Text: Website form: preserve the original field values, message and uploaded media. Phone and machine/location remain optional.
+Email: use sender, subject, message and attachments; collect missing account, request and machine details during triage.
+WhatsApp: use sender phone, messages and media; collect name, email, account type and machine details when needed.
+  Layer: “Not collected” means a structured field has not been confirmed. “Other” remains an explicit choice from the website form. | Tag: div | Style: width:1056px;color:#A0A8AD;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(160,168,173,1)
+      Text: “Not collected” means a structured field has not been confirmed. “Other” remains an explicit choice from the website form.
+  Layer: Illustrative ticket data. Controls are design states; the selected ticket and Back action are linked in the prototype. | Tag: div | Style: width:1056px;color:#78828A;font-family:Inter;font-size:11px;font-style:normal;font-weight:400;line-height:20px /* 181.818% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:11px;color:rgba(120,130,138,1)
+      Text: Illustrative ticket data. Ticket navigation and status buttons are linked in the prototype; search and filters remain design states.
+  Layer: Status flow: Open → In Progress → Closed. Start progress begins work; Close ticket completes it; Reopen ticket returns it to Open. | Tag: div | Style: width:1056px;color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+      Text: Status flow: Open → In Progress → Closed. In Progress offers Close ticket only. Reopen ticket is available only when Closed.
+  Layer: Reply routing: Website form → Email. Email → Email only. WhatsApp → WhatsApp only. Internal notes are never sent to the customer. | Tag: div | Style: width:1056px;color:#EFF2F0;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(239,242,240,1)
+      Text: Reply routing: Website form → Email. Email → Email only. WhatsApp → WhatsApp only. Internal notes are never sent to the customer.
+  Layer: Language: English is active in this draft. German is planned as the default for launch; no German screens are enabled yet. | Tag: div | Style: width:1056px;color:#A0A8AD;font-family:Inter;font-size:13px;font-style:normal;font-weight:400;line-height:20px /* 153.846% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(160,168,173,1)
+      Text: Language: English is active in this draft. German is planned as the default for launch; no German screens are enabled yet.
+  Layer: New Ticket prototype: select the name field to see a filled example, then Create ticket. Empty submission shows required-field errors. Cancel returns to the dashboard. | Tag: div | Style: width:1056px;color:#A0A8AD;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(160,168,173,1)
+      Text: New Ticket prototype: select the name field to see a filled example, then Create ticket. Empty submission shows required-field errors. Cancel returns to the dashboard.
+  Layer: Email notifications: confirmation on creation; update on Start progress; agent reply when Send reply is used; closure on Close ticket; reopening only from Closed. Send emails only for Website form / Email tickets. WhatsApp tickets stay on WhatsApp. | Tag: div | Style: width:1056px;color:#A0A8AD;font-family:Inter;font-size:12px;font-style:normal;font-weight:400;line-height:20px /* 166.667% */;position:relative
+    Layer: None | Tag: span | Style: font-family:Inter, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(160,168,173,1)
+      Text: Email notifications: confirmation on creation; update on Start progress; agent reply when Send reply is used; closure on Close ticket; reopening only from Closed. Send emails only for Website form / Email tickets. WhatsApp tickets stay on WhatsApp.

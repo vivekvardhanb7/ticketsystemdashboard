@@ -4,7 +4,7 @@ const LanguageDropdown = () => {
   return (
     <div className="flex w-[284px] p-4 flex-col items-start gap-3 rounded-[10px] border border-[#282C2F] bg-[#111315] overflow-hidden">
       <div className="text-[#EFF2F0] font-semibold text-[14px] leading-[20px]">
-        Interface language
+        Satoshiface language
       </div>
       <div className="flex h-[34px] px-3 items-center gap-2 rounded-[7px] border border-[#345135] bg-[#17241A] overflow-hidden cursor-pointer">
         <div className="text-[#78EF63] font-medium text-[12px] leading-[20px]">

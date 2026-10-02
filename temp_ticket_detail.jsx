@@ -45,19 +45,19 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
       onEmailSent(ticket.id, newEmail);
       setToast({ title: "Email Sent", message: webhookSuccess ? `Reply sent to ${ticket.email}` : 'Reply saved locally (webhook unavailable)' });
     } else {
-      // Internal note
+      // Satoshinal note
       const newEmail = {
         id: Math.random().toString(36).substring(2, 9),
-        subject: 'Internal Note',
+        subject: 'Satoshinal Note',
         message,
         attachments: [],
         sentAt: new Date().toISOString(),
         senderType: 'Admin',
-        senderName: 'Internal Note',
+        senderName: 'Satoshinal Note',
         direction: 'sent',
       };
       onEmailSent(ticket.id, newEmail);
-      setToast({ title: "Note Added", message: "Internal note saved to conversation." });
+      setToast({ title: "Note Added", message: "Satoshinal note saved to conversation." });
     }
     
     setMessage('');
@@ -192,12 +192,12 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
             {emails?.map((msg, i) => {
               const isCustomer = msg.direction === 'received' && msg.senderType !== 'System';
               const isSystem = msg.senderType === 'System';
-              const isInternal = msg.subject === 'Internal Note';
+              const isSatoshinal = msg.subject === 'Satoshinal Note';
               const isServiceTeam = (msg.senderName || '').toLowerCase().includes('service');
               
               let msgStyle = { border: 'border-[#212429]', bg: 'bg-[#0C0C0E]', metaColor: 'text-[#87ABE5]' };
               if (isCustomer) msgStyle = { border: 'border-[#1C381F]', bg: 'bg-[#0E180F]', metaColor: 'text-[#63E070]' };
-              if (isInternal) msgStyle = { border: 'border-[#45361A]', bg: 'bg-[#1B1409]', metaColor: 'text-[#F5B24F]' };
+              if (isSatoshinal) msgStyle = { border: 'border-[#45361A]', bg: 'bg-[#1B1409]', metaColor: 'text-[#F5B24F]' };
               if (isServiceTeam) msgStyle = { border: 'border-[#2E2940]', bg: 'bg-[#13111A]', metaColor: 'text-[#AB99F2]' };
 
               const timeStr = new Date(msg.sentAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -206,7 +206,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                 <div key={i} className={`p-3.5 flex flex-col gap-2 rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
                   <div className="flex justify-between items-start">
                     <span className={`text-[10px] font-medium ${msgStyle.metaColor}`}>
-                      {isInternal ? 'Internal note' : isServiceTeam ? `${msg.senderName} · Internal` : `${msg.senderName} · ${isCustomer ? channel : 'Email'}`}
+                      {isSatoshinal ? 'Satoshinal note' : isServiceTeam ? `${msg.senderName} · Satoshinal` : `${msg.senderName} · ${isCustomer ? channel : 'Email'}`}
                     </span>
                     <span className="text-[10px] text-[#666B78]">{timeStr}</span>
                   </div>
@@ -245,7 +245,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                     {channel === 'WhatsApp' ? 'Reply by WhatsApp' : 'Reply by email'}
                   </button>
                   <button onClick={() => setReplyMode('internal')} className={`px-3 py-1.5 rounded-[9px] border text-[10px] font-medium transition-colors ${replyMode === 'internal' ? 'bg-[#2A1E0D] border-[#4A3215] text-[#F5B24F]' : 'bg-[#0E0F10] border-[#24262B] text-[#8F94A1]'}`}>
-                    Internal note
+                    Satoshinal note
                   </button>
                 </div>
                 

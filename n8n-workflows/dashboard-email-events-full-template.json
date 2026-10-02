@@ -1,0 +1,557 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ticket-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4320,
+        -832
+      ],
+      "id": "036e369e-c159-4f1c-88a9-cd1cc4ee57e1",
+      "name": "Webhook1",
+      "webhookId": "753d63e1-17e1-4b70-862c-740cbbf911a1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "TICKET_RECEIVED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "IN_PROGRESS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "REPLY_SENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "CLOSED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.eventType }}",
+                    "rightValue": "STATUS_CHANGED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.body.ticketStatus }}",
+                    "rightValue": "OPEN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -4096,
+        -880
+      ],
+      "id": "79ae9d40-25f6-4b3f-80d8-015e1da6e8f1",
+      "name": "Route by Event Type"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html> <html lang=\"en\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\"> <head> <meta charset=\"utf-8\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"> <meta name=\"format-detection\" content=\"telephone=no,date=no,address=no,email=no\"> <!--[if mso]> <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript> <![endif]--> <title>We received your request</title> <style> @import url(\\'https://fonts.googleapis.com/css2?family=Overused+Grotesk:wght@400;500;600&display=swap\\'); * { box-sizing: border-box; } body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; } img { border:0; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; } table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; } body { margin:0; padding:0; background-color:#ffffff; } /* ── MOBILE ONLY ── */ @media only screen and (max-width:620px) { .email-wrap { width:100% !important; } .pad24 { padding-left:16px !important; padding-right:16px !important; } .banner-inner { padding:16px !important; } .banner-status { font-size:22px !important; line-height:26px !important; } .email-title { font-size:20px !important; } .body-para { font-size:15px !important; } .logo-cell { padding-top:20px !important; padding-bottom:12px !important; } .reply-link { font-size:15px !important; } } </style> </head> <body style=\"margin:0;padding:0;background-color:#ffffff;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#ffffff;\"> <tr> <td align=\"center\" style=\"padding:20px 10px;\"> <!-- Email container: max 600px, white bg --> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" class=\"email-wrap\" style=\"max-width:600px;width:100%;background-color:#ffffff;\"> <!-- ─ BRAND HEADER ─ --> <!-- Logo --> <tr> <td align=\"center\" class=\"logo-cell pad24\" style=\"padding:24px 24px 0;\"> <img src=\"https://cdn.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=200\" width=\"80\" height=\"80\" alt=\"NAF Logo\" style=\"width:80px;height:80px;display:block;margin:0 auto;border:0;border-radius:50%;overflow:hidden;\"> </td> </tr> <!-- Title --> <tr> <td align=\"center\" class=\"pad24\" style=\"padding:18px 24px 18px;\"> <p class=\"email-title\" style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:24px;font-weight:500; color:#1B1D1B;line-height:24px;text-align:center;\">We received your request</p> </td> </tr> <!-- Status Banner --> <tr> <td class=\"pad24\" style=\"padding:0 24px 24px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#78F080;border-radius:12px;overflow:hidden;\"> <tr> <td class=\"banner-inner\" style=\"padding:24px;\"> <p style=\"margin:0 0 6px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px;font-weight:500; color:#17371C;line-height:18px;letter-spacing:0.3px;\">NAF SUPPORT</p> <p class=\"banner-status\" style=\"margin:0 0 8px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:26px;font-weight:500; color:#152D18;line-height:30px;\">Open</p> <p style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:14px;font-weight:400; color:#26462B;line-height:18px;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '&nbsp;&nbsp;&#183;&nbsp;&nbsp;' + ($('Webhook1').item.json.body.subject || '') + '</p> </td> </tr> </table> </td> </tr> <!-- ─ SUPPORT MESSAGE ─ --> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Hello ' + ($('Webhook1').item.json.body.toName || '') + ', </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Thank you for contacting NAF Support. Your request is with us, and our team will review it. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border:1px solid #E5E7E5;border-radius:6px;background-color:#FAFAFA;overflow:hidden;\"> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Reference </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.ticketRef || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Subject </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.subject || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Request type </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.requestType || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;\"> Status </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;\"> Open </td> </tr> </table> </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> You can reply to this email to add information, photos or other details that may help us understand your request. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 12px;\"> <a href=\"mailto:ldintertechinnovation@outlook.com?subject=Re: ' + ($('Webhook1').item.json.body.subject || '') + ' (' + ($('Webhook1').item.json.body.ticketRef || '') + ')\" class=\"reply-link\" style=\"display:block;width:100%;padding:12px 24px; background-color:#78F080;border-radius:7px; text-align:center;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:500;color:#152D18;text-decoration:none; line-height:24px;box-sizing:border-box;\"> Reply to this email </a> </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px; font-weight:400;color:#707670;line-height:18px;\"> Keep <strong style=\"font-weight:500;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '</strong> in the subject so we can keep your conversation together. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 32px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> With warm regards,<br>Your NAF Germany support team </td> </tr> <!-- ─ FOOTER ─ --> <tr> <td style=\\\"padding:0;\\\"> <!--[if mso]><table width=\\\"600\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td><![endif]--> <table role=\\\"presentation\\\" width=\\\"100%\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background-color:#1A1A1A;\\\"> <!-- Social Icons --> <tr> <td align=\\\"center\\\" style=\\\"padding:28px 25px 20px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"> <tr> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.facebook.com/p/NAF-New-Age-of-Food-by-Gasthof-Halsbach-61551546894852/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/facebook.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Facebook\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.instagram.com/nafbygasthofhalsbach/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/instagram.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Instagram\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.linkedin.com/in/odette-lamkhizni-42a241251/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/linkedin.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"LinkedIn\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.youtube.com/@NAFbyGasthofHalsbach\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/youtube-play.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"YouTube\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> </tr> </table> </td> </tr> <!-- Divider 1 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Address --> <tr> <td align=\\\"center\\\" style=\\\"padding:16px 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> NAF &#8212; New Age of Food GmbH<br> Obere Stra&#223;e 3, 09599 Freiberg, OT Halsbach<br> Sales: info@naf-halsbach.de<br> Support: support@naf-halsbach.de<br> Phone: 0152 &#8212; 28387141 </td> </tr> <!-- Divider 2 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Legal --> <tr> <td style=\\\"padding:16px 25px 12px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message. </td> </tr> <tr> <td style=\\\"padding:0 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> If you did not initiate this action or believe this email was sent in error, please contact our support team. </td> </tr> <!-- Copyright --> <tr> <td style=\\\"padding:0 25px 24px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr> <td style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> &#169; 2026 NAF &#8212; New Age of Food GmbH </td> <td align=\\\"right\\\" style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> All Rights Reserved </td> </tr> </table> </td> </tr> </table> <!--[if mso]></td></tr></table><![endif]--> </td> </tr> </table> </td> </tr> </table> </body> </html>' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3872,
+        -1216
+      ],
+      "id": "151b78f9-570f-4aaa-a5a6-08959303142f",
+      "name": "Set Ticket Received HTML"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html> <html lang=\"en\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\"> <head> <meta charset=\"utf-8\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"> <meta name=\"format-detection\" content=\"telephone=no,date=no,address=no,email=no\"> <!--[if mso]> <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript> <![endif]--> <title>We are on it</title> <style> @import url(\\'https://fonts.googleapis.com/css2?family=Overused+Grotesk:wght@400;500;600&display=swap\\'); * { box-sizing: border-box; } body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; } img { border:0; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; } table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; } body { margin:0; padding:0; background-color:#ffffff; } /* ── MOBILE ONLY ── */ @media only screen and (max-width:620px) { .email-wrap { width:100% !important; } .pad24 { padding-left:16px !important; padding-right:16px !important; } .banner-inner { padding:16px !important; } .banner-status { font-size:22px !important; line-height:26px !important; } .email-title { font-size:20px !important; } .body-para { font-size:15px !important; } .logo-cell { padding-top:20px !important; padding-bottom:12px !important; } .reply-link { font-size:15px !important; } } </style> </head> <body style=\"margin:0;padding:0;background-color:#ffffff;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#ffffff;\"> <tr> <td align=\"center\" style=\"padding:20px 10px;\"> <!-- Email container: max 600px, white bg --> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" class=\"email-wrap\" style=\"max-width:600px;width:100%;background-color:#ffffff;\"> <!-- ─ BRAND HEADER ─ --> <!-- Logo --> <tr> <td align=\"center\" class=\"logo-cell pad24\" style=\"padding:24px 24px 0;\"> <img src=\"https://cdn.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=200\" width=\"80\" height=\"80\" alt=\"NAF Logo\" style=\"width:80px;height:80px;display:block;margin:0 auto;border:0;border-radius:50%;overflow:hidden;\"> </td> </tr> <!-- Title --> <tr> <td align=\"center\" class=\"pad24\" style=\"padding:18px 24px 18px;\"> <p class=\"email-title\" style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:24px;font-weight:500; color:#1B1D1B;line-height:24px;text-align:center;\">We are on it</p> </td> </tr> <!-- Status Banner --> <tr> <td class=\"pad24\" style=\"padding:0 24px 24px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#78F080;border-radius:12px;overflow:hidden;\"> <tr> <td class=\"banner-inner\" style=\"padding:24px;\"> <p style=\"margin:0 0 6px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px;font-weight:500; color:#17371C;line-height:18px;letter-spacing:0.3px;\">NAF SUPPORT</p> <p class=\"banner-status\" style=\"margin:0 0 8px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:26px;font-weight:500; color:#152D18;line-height:30px;\">In Progress</p> <p style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:14px;font-weight:400; color:#26462B;line-height:18px;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '&nbsp;&nbsp;&#183;&nbsp;&nbsp;' + ($('Webhook1').item.json.body.subject || '') + '</p> </td> </tr> </table> </td> </tr> <!-- ─ SUPPORT MESSAGE ─ --> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Hello ' + ($('Webhook1').item.json.body.toName || '') + ', </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Our support team has started working on your request. We will keep you updated in this email conversation. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border:1px solid #E5E7E5;border-radius:6px;background-color:#FAFAFA;overflow:hidden;\"> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Reference </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.ticketRef || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Subject </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.subject || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Request type </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.requestType || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;\"> Status </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;\"> In Progress </td> </tr> </table> </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> You do not need to submit another ticket. If you have new information, reply here and we will add it to your existing request. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 12px;\"> <a href=\"mailto:ldintertechinnovation@outlook.com?subject=Re: ' + ($('Webhook1').item.json.body.subject || '') + ' (' + ($('Webhook1').item.json.body.ticketRef || '') + ')\" class=\"reply-link\" style=\"display:block;width:100%;padding:12px 24px; background-color:#78F080;border-radius:7px; text-align:center;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:500;color:#152D18;text-decoration:none; line-height:24px;box-sizing:border-box;\"> Reply to this email </a> </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px; font-weight:400;color:#707670;line-height:18px;\"> Keep <strong style=\"font-weight:500;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '</strong> in the subject so we can keep your conversation together. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 32px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> With warm regards,<br>Your NAF Germany support team </td> </tr> <!-- ─ FOOTER ─ --> <tr> <td style=\\\"padding:0;\\\"> <!--[if mso]><table width=\\\"600\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td><![endif]--> <table role=\\\"presentation\\\" width=\\\"100%\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background-color:#1A1A1A;\\\"> <!-- Social Icons --> <tr> <td align=\\\"center\\\" style=\\\"padding:28px 25px 20px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"> <tr> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.facebook.com/p/NAF-New-Age-of-Food-by-Gasthof-Halsbach-61551546894852/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/facebook.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Facebook\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.instagram.com/nafbygasthofhalsbach/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/instagram.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Instagram\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.linkedin.com/in/odette-lamkhizni-42a241251/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/linkedin.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"LinkedIn\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.youtube.com/@NAFbyGasthofHalsbach\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/youtube-play.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"YouTube\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> </tr> </table> </td> </tr> <!-- Divider 1 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Address --> <tr> <td align=\\\"center\\\" style=\\\"padding:16px 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> NAF &#8212; New Age of Food GmbH<br> Obere Stra&#223;e 3, 09599 Freiberg, OT Halsbach<br> Sales: info@naf-halsbach.de<br> Support: support@naf-halsbach.de<br> Phone: 0152 &#8212; 28387141 </td> </tr> <!-- Divider 2 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Legal --> <tr> <td style=\\\"padding:16px 25px 12px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message. </td> </tr> <tr> <td style=\\\"padding:0 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> If you did not initiate this action or believe this email was sent in error, please contact our support team. </td> </tr> <!-- Copyright --> <tr> <td style=\\\"padding:0 25px 24px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr> <td style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> &#169; 2026 NAF &#8212; New Age of Food GmbH </td> <td align=\\\"right\\\" style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> All Rights Reserved </td> </tr> </table> </td> </tr> </table> <!--[if mso]></td></tr></table><![endif]--> </td> </tr> </table> </td> </tr> </table> </body> </html>' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3872,
+        -1024
+      ],
+      "id": "15282cf6-8a95-4821-9fbd-4711f57b593f",
+      "name": "Set In Progress HTML"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "html_body",
+              "value": "={{ \"<!-- [Note for AI: This is raw Figma design HTML that uses absolute positioning or not quite perfect responsiveness. When\\n    converting to code, make it fully responsive by avoiding absolute positioning and instead\\n    use modern CSS techniques like flexbox, grid, and responsive units to look great on ALL screen sizes fluidly. Ensure it looks good\\n    on all device sizes - mobile, tablet, and desktop. Preserve the design as perfectly as\\n    possible, 100% pixel perfect is what we want in the output code. In some cases, there may be a placeholder grey square instead of an image.\\n    We want to retain that placeholder square, not try to replace it with a better image. Note there may be\\n    multiple screens in the figma design - sometimes this represents different states like\\n    desktop vs mobile size or multiple steps in a flow - do your best to infer or ask the user] -->\\n\\n<!-- Figma selected node: Support Email / 03 Support reply -->\\n<div layer-name=\\\"Support Email / 03 Support reply\\\" style=\\\"display:flex;width:600px;flex-direction:column;align-items:flex-start;background:#FFF;overflow:hidden;position:absolute;left:0px;top:0px;height:1093px\\\"><div layer-name=\\\"Brand header\\\" style=\\\"display:flex;width:600px;padding:24px;flex-direction:column;align-items:center;gap:18px;overflow:hidden;position:relative\\\"><img src=\\\"https://api.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=160\\\" style=\\\"width:80px;height:80px;aspect-ratio:1/1;overflow:hidden;position:relative\\\" alt=\\\"NAF Logo\\\" layer-name=\\\"NAF Logo\\\" /><div layer-name=\\\"A reply from NAF Support\\\" style=\\\"width:552px;color:#1B1D1B;text-align:center;font-family:'Overused Grotesk';font-size:24px;font-style:normal;font-weight:500;line-height:24px /* 100% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:24px;color:rgba(27,29,27,1)\\\">A reply from NAF Support</span></div><div layer-name=\\\"Ticket status banner\\\" style=\\\"display:flex;width:552px;padding:24px;flex-direction:column;align-items:flex-start;gap:10px;border-radius:12px;background:#78F080;overflow:hidden;position:relative\\\"><div layer-name=\\\"NAF SUPPORT\\\" style=\\\"width:504px;color:#17371C;font-family:'Overused Grotesk';font-size:12px;font-style:normal;font-weight:500;line-height:18px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:12px;color:rgba(23,55,28,1)\\\">NAF SUPPORT</span></div><div layer-name=\\\"[Current status]\\\" style=\\\"width:504px;color:#152D18;font-family:'Overused Grotesk';font-size:26px;font-style:normal;font-weight:500;line-height:24px /* 92.308% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:26px;color:rgba(21,45,24,1)\\\">[Current status]</span></div><div layer-name=\\\"[Ticket reference]  ·  [Ticket subject]\\\" style=\\\"width:504px;color:#26462B;font-family:'Overused Grotesk';font-size:14px;font-style:normal;font-weight:400;line-height:18px /* 128.571% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:14px;color:rgba(38,70,43,1)\\\">[Ticket reference]  ·  [Ticket subject]</span></div></div></div><div layer-name=\\\"Support message\\\" style=\\\"display:flex;width:600px;padding:24px;flex-direction:column;align-items:flex-start;gap:20px;overflow:hidden;position:relative\\\"><div layer-name=\\\"Hello [Customer name],\\\" style=\\\"width:552px;color:#393B39;font-family:'Overused Grotesk';font-size:16px;font-style:normal;font-weight:400;line-height:24px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:16px;color:rgba(57,59,57,1)\\\">Hello [Customer name],</span></div><div layer-name=\\\"Our support team has replied to your request.\\\" style=\\\"width:552px;color:#393B39;font-family:'Overused Grotesk';font-size:16px;font-style:normal;font-weight:400;line-height:24px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:16px;color:rgba(57,59,57,1)\\\"><message from the dashboard field></span></div><div layer-name=\\\"Ticket summary\\\" style=\\\"display:flex;width:552px;flex-direction:column;align-items:flex-start;border-radius:6px;border:1px solid #E5E7E5;background:#FAFAFA;overflow:hidden;position:relative\\\"><div layer-name=\\\"Reference\\\" style=\\\"display:flex;width:552px;padding:12px;align-items:flex-start;gap:16px;overflow:hidden;position:relative\\\"><div layer-name=\\\"Reference\\\" style=\\\"width:144px;flex-shrink:0;color:#707670;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:400;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(112,118,112,1)\\\">Reference</span></div><div layer-name=\\\"[Ticket reference]\\\" style=\\\"width:368px;flex-shrink:0;color:#252A25;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:500;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:13px;color:rgba(37,42,37,1)\\\">[Ticket reference]</span></div></div><div layer-name=\\\"Subject\\\" style=\\\"display:flex;width:552px;padding:12px;align-items:flex-start;gap:16px;overflow:hidden;position:relative\\\"><div layer-name=\\\"Subject\\\" style=\\\"width:144px;flex-shrink:0;color:#707670;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:400;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(112,118,112,1)\\\">Subject</span></div><div layer-name=\\\"[Ticket subject]\\\" style=\\\"width:368px;flex-shrink:0;color:#252A25;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:500;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:13px;color:rgba(37,42,37,1)\\\">[Ticket subject]</span></div></div><div layer-name=\\\"Request type\\\" style=\\\"display:flex;width:552px;padding:12px;align-items:flex-start;gap:16px;overflow:hidden;position:relative\\\"><div layer-name=\\\"Request type\\\" style=\\\"width:144px;flex-shrink:0;color:#707670;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:400;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(112,118,112,1)\\\">Request type</span></div><div layer-name=\\\"[Request type]\\\" style=\\\"width:368px;flex-shrink:0;color:#252A25;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:500;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:13px;color:rgba(37,42,37,1)\\\">[Request type]</span></div></div><div layer-name=\\\"Status\\\" style=\\\"display:flex;width:552px;padding:12px;align-items:flex-start;gap:16px;overflow:hidden;position:relative\\\"><div layer-name=\\\"Status\\\" style=\\\"width:144px;flex-shrink:0;color:#707670;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:400;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:13px;color:rgba(112,118,112,1)\\\">Status</span></div><div layer-name=\\\"[Current status]\\\" style=\\\"width:368px;flex-shrink:0;color:#252A25;font-family:'Overused Grotesk';font-size:13px;font-style:normal;font-weight:500;line-height:18px /* 138.462% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:13px;color:rgba(37,42,37,1)\\\">[Current status]</span></div></div></div><div layer-name=\\\"Reply to this email\\\" style=\\\"display:flex;width:552px;height:46px;padding:12px;justify-content:center;align-items:center;border-radius:7px;background:#78F080;overflow:hidden;position:relative\\\"><div layer-name=\\\"Reply to this email\\\" style=\\\"color:#152D18;font-family:'Overused Grotesk';font-size:16px;font-style:normal;font-weight:500;line-height:24px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:500;font-size:16px;color:rgba(21,45,24,1)\\\">Reply to this email</span></div></div><div layer-name=\\\"Keep [Ticket reference] in the subject so we can keep your conversation together.\\\" style=\\\"width:552px;color:#707670;font-family:'Overused Grotesk';font-size:12px;font-style:normal;font-weight:400;line-height:18px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:12px;color:rgba(112,118,112,1)\\\">Keep [Ticket reference] in the subject so we can keep your conversation together.</span></div><div layer-name=\\\"With warm regards,\\nYour NAF Germany support team\\\" style=\\\"width:552px;color:#393B39;font-family:'Overused Grotesk';font-size:16px;font-style:normal;font-weight:400;line-height:24px /* 150% */;position:relative\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:16px;color:rgba(57,59,57,1)\\\">With warm regards,\\nYour NAF Germany support team</span></div></div><div layer-name=\\\"Footer\\\" style=\\\"width:600px;height:299px;background:#1A1A1A;overflow:hidden;position:relative\\\"><div layer-name=\\\"You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.\\\" style=\\\"width:550px;color:#FFF;font-family:'Overused Grotesk';font-size:10px;font-style:normal;font-weight:400;line-height:150% /* 15px */;position:absolute;left:25px;top:162px;height:30px\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:10px;color:rgba(255,255,255,1)\\\">You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message.</span></div><div layer-name=\\\"If you did not initiate this action or believe this email was sent in error, please contact our support team.\\\" style=\\\"color:#FFF;font-family:'Overused Grotesk';font-size:10px;font-style:normal;font-weight:400;line-height:150% /* 15px */;position:absolute;left:25px;top:202px;width:430px;height:15px\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:10px;color:rgba(255,255,255,1)\\\">If you did not initiate this action or believe this email was sent in error, please contact our support team.</span></div><div layer-name=\\\"NAF — New Age of Food GmbH Obere Straße 3, 09599 Freiberg, OT Halsbach Sales: info@naf-halsbach.de Support: support@naf-halsbach.de Phone: 0152 – 28387141\\\" style=\\\"color:#FFF;text-align:center;font-family:'Overused Grotesk';font-size:10px;font-style:normal;font-weight:400;line-height:150% /* 15px */;position:absolute;left:204px;top:69px;width:192px;height:75px\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:10px;color:rgba(255,255,255,1)\\\">NAF — New Age of Food GmbH\\nObere Straße 3, 09599 Freiberg, OT Halsbach\\nSales: info@naf-halsbach.de Support: support@naf-halsbach.de\\nPhone: 0152 – 28387141</span></div><div layer-name=\\\"© 2026 NAF — New Age of Food GmbH\\\" style=\\\"color:#FFF;text-align:center;font-family:'Overused Grotesk';font-size:10px;font-style:normal;font-weight:400;line-height:150% /* 15px */;position:absolute;left:25px;top:269px;width:168px;height:15px\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:10px;color:rgba(255,255,255,1)\\\">© 2026 NAF — New Age of Food GmbH</span></div><div layer-name=\\\"All Rights Reserved\\\" style=\\\"color:#FFF;text-align:right;font-family:'Overused Grotesk';font-size:10px;font-style:normal;font-weight:400;line-height:150% /* 15px */;position:absolute;left:493px;top:269px;width:82px;height:15px\\\"><span style=\\\"font-family:Overused Grotesk, -apple-system, Roboto, Helvetica, sans-serif;font-weight:400;font-size:10px;color:rgba(255,255,255,1)\\\">All Rights Reserved</span></div><div layer-name=\\\"icons\\\" style=\\\"display:inline-flex;align-items:center;gap:24px;position:absolute;left:232px;top:25px;width:136px;height:16px\\\"><svg id=\\\"33:29\\\" layer-name=\\\"Social Icons\\\" style=\\\"aspect-ratio:1/1;overflow:hidden;position:relative\\\" width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\">\\n<g clip-path=\\\"url(#clip0_33_29)\\\">\\n<path d=\\\"M8 0C3.58176 0 0 3.58176 0 8C0 11.7517 2.58304 14.8998 6.06752 15.7645V10.4448H4.41792V8H6.06752V6.94656C6.06752 4.22368 7.29984 2.9616 9.97312 2.9616C10.48 2.9616 11.3546 3.06112 11.7123 3.16032V5.37632C11.5235 5.35648 11.1955 5.34656 10.7882 5.34656C9.47648 5.34656 8.9696 5.84352 8.9696 7.13536V8H11.5827L11.1338 10.4448H8.9696V15.9414C12.9309 15.463 16.0003 12.0902 16.0003 8C16 3.58176 12.4182 0 8 0Z\\\" fill=\\\"white\\\"/>\\n</g>\\n<defs>\\n<clipPath id=\\\"clip0_33_29\\\">\\n<rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/>\\n</clipPath>\\n</defs>\\n</svg>\\n<svg id=\\\"33:31\\\" layer-name=\\\"Social Icons\\\" style=\\\"aspect-ratio:1/1;overflow:hidden;position:relative\\\" width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\">\\n<g clip-path=\\\"url(#clip0_33_31)\\\">\\n<path d=\\\"M8 1.44062C10.1375 1.44062 10.3906 1.45 11.2313 1.4875C12.0125 1.52187 12.4344 1.65313 12.7156 1.7625C13.0875 1.90625 13.3563 2.08125 13.6344 2.35938C13.9156 2.64062 14.0875 2.90625 14.2313 3.27813C14.3406 3.55938 14.4719 3.98438 14.5063 4.7625C14.5438 5.60625 14.5531 5.85938 14.5531 7.99375C14.5531 10.1313 14.5438 10.3844 14.5063 11.225C14.4719 12.0063 14.3406 12.4281 14.2313 12.7094C14.0875 13.0813 13.9125 13.35 13.6344 13.6281C13.3531 13.9094 13.0875 14.0813 12.7156 14.225C12.4344 14.3344 12.0094 14.4656 11.2313 14.5C10.3875 14.5375 10.1344 14.5469 8 14.5469C5.8625 14.5469 5.60938 14.5375 4.76875 14.5C3.9875 14.4656 3.56563 14.3344 3.28438 14.225C2.9125 14.0813 2.64375 13.9063 2.36563 13.6281C2.08438 13.3469 1.9125 13.0813 1.76875 12.7094C1.65938 12.4281 1.52813 12.0031 1.49375 11.225C1.45625 10.3813 1.44688 10.1281 1.44688 7.99375C1.44688 5.85625 1.45625 5.60313 1.49375 4.7625C1.52813 3.98125 1.65938 3.55938 1.76875 3.27813C1.9125 2.90625 2.0875 2.6375 2.36563 2.35938C2.64688 2.07812 2.9125 1.90625 3.28438 1.7625C3.56563 1.65313 3.99063 1.52187 4.76875 1.4875C5.60938 1.45 5.8625 1.44062 8 1.44062ZM8 0C5.82813 0 5.55625 0.009375 4.70313 0.046875C3.85313 0.084375 3.26875 0.221875 2.7625 0.41875C2.23438 0.625 1.7875 0.896875 1.34375 1.34375C0.896875 1.7875 0.625 2.23438 0.41875 2.75938C0.221875 3.26875 0.084375 3.85 0.046875 4.7C0.009375 5.55625 0 5.82812 0 8C0 10.1719 0.009375 10.4438 0.046875 11.2969C0.084375 12.1469 0.221875 12.7313 0.41875 13.2375C0.625 13.7656 0.896875 14.2125 1.34375 14.6562C1.7875 15.1 2.23438 15.375 2.75938 15.5781C3.26875 15.775 3.85 15.9125 4.7 15.95C5.55313 15.9875 5.825 15.9969 7.99688 15.9969C10.1688 15.9969 10.4406 15.9875 11.2938 15.95C12.1438 15.9125 12.7281 15.775 13.2344 15.5781C13.7594 15.375 14.2063 15.1 14.65 14.6562C15.0938 14.2125 15.3688 13.7656 15.5719 13.2406C15.7688 12.7313 15.9063 12.15 15.9438 11.3C15.9813 10.4469 15.9906 10.175 15.9906 8.00313C15.9906 5.83125 15.9813 5.55938 15.9438 4.70625C15.9063 3.85625 15.7688 3.27188 15.5719 2.76562C15.375 2.23438 15.1031 1.7875 14.6563 1.34375C14.2125 0.9 13.7656 0.625 13.2406 0.421875C12.7313 0.225 12.15 0.0875 11.3 0.05C10.4438 0.009375 10.1719 0 8 0Z\\\" fill=\\\"white\\\"/>\\n<path d=\\\"M8 3.89062C5.73125 3.89062 3.89062 5.73125 3.89062 8C3.89062 10.2688 5.73125 12.1094 8 12.1094C10.2688 12.1094 12.1094 10.2688 12.1094 8C12.1094 5.73125 10.2688 3.89062 8 3.89062ZM8 10.6656C6.52813 10.6656 5.33437 9.47188 5.33437 8C5.33437 6.52813 6.52813 5.33437 8 5.33437C9.47188 5.33437 10.6656 6.52813 10.6656 8C10.6656 9.47188 9.47188 10.6656 8 10.6656Z\\\" fill=\\\"white\\\"/>\\n<path d=\\\"M13.2312 3.72818C13.2312 4.25943 12.8 4.68755 12.2719 4.68755C11.7406 4.68755 11.3125 4.2563 11.3125 3.72818C11.3125 3.19692 11.7438 2.7688 12.2719 2.7688C12.8 2.7688 13.2312 3.20005 13.2312 3.72818Z\\\" fill=\\\"white\\\"/>\\n</g>\\n<defs>\\n<clipPath id=\\\"clip0_33_31\\\">\\n<rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/>\\n</clipPath>\\n</defs>\\n</svg>\\n<svg id=\\\"33:35\\\" layer-name=\\\"Social Icons\\\" style=\\\"aspect-ratio:1/1;overflow:hidden;position:relative\\\" width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\">\\n<g clip-path=\\\"url(#clip0_33_35)\\\">\\n<path d=\\\"M14.8156 0H1.18125C0.528125 0 0 0.515625 0 1.15313V14.8438C0 15.4813 0.528125 16 1.18125 16H14.8156C15.4688 16 16 15.4813 16 14.8469V1.15313C16 0.515625 15.4688 0 14.8156 0ZM4.74687 13.6344H2.37188V5.99687H4.74687V13.6344ZM3.55938 4.95625C2.79688 4.95625 2.18125 4.34062 2.18125 3.58125C2.18125 2.82188 2.79688 2.20625 3.55938 2.20625C4.31875 2.20625 4.93437 2.82188 4.93437 3.58125C4.93437 4.3375 4.31875 4.95625 3.55938 4.95625ZM13.6344 13.6344H11.2625V9.92188C11.2625 9.0375 11.2469 7.89687 10.0281 7.89687C8.79375 7.89687 8.60625 8.8625 8.60625 9.85938V13.6344H6.2375V5.99687H8.5125V7.04063H8.54375C8.85938 6.44063 9.63438 5.80625 10.7875 5.80625C13.1906 5.80625 13.6344 7.3875 13.6344 9.44375V13.6344Z\\\" fill=\\\"white\\\"/>\\n</g>\\n<defs>\\n<clipPath id=\\\"clip0_33_35\\\">\\n<rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/>\\n</clipPath>\\n</defs>\\n</svg>\\n<svg id=\\\"33:37\\\" layer-name=\\\"Social Icons\\\" style=\\\"aspect-ratio:1/1;overflow:hidden;position:relative\\\" width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\">\\n<path d=\\\"M15.8406 4.79995C15.8406 4.79995 15.6844 3.69683 15.2031 3.21245C14.5938 2.57495 13.9125 2.57183 13.6 2.53433C11.3625 2.37183 8.00313 2.37183 8.00313 2.37183H7.99687C7.99687 2.37183 4.6375 2.37183 2.4 2.53433C2.0875 2.57183 1.40625 2.57495 0.796875 3.21245C0.315625 3.69683 0.1625 4.79995 0.1625 4.79995C0.1625 4.79995 0 6.09683 0 7.39058V8.60308C0 9.89683 0.159375 11.1937 0.159375 11.1937C0.159375 11.1937 0.315625 12.2968 0.79375 12.7812C1.40313 13.4187 2.20313 13.3968 2.55938 13.4656C3.84063 13.5875 8 13.625 8 13.625C8 13.625 11.3625 13.6187 13.6 13.4593C13.9125 13.4218 14.5938 13.4187 15.2031 12.7812C15.6844 12.2968 15.8406 11.1937 15.8406 11.1937C15.8406 11.1937 16 9.89995 16 8.60308V7.39058C16 6.09683 15.8406 4.79995 15.8406 4.79995ZM6.34688 10.075V5.57808L10.6687 7.83433L6.34688 10.075Z\\\" fill=\\\"white\\\"/>\\n</svg>\\n</div><div style=\\\"width:46px;height:0px;background:#FFF;position:absolute;left:277px;top:59px\\\"></div><div style=\\\"width:551px;height:0px;background:#FFF;position:absolute;left:24px;top:258px\\\"></div></div></div>\".replace(/\\[Current status\\]/g, String($('Webhook1').item.json.body.ticketStatus || 'OPEN').replace(/_/g, ' ')).replace(/\\[Ticket reference\\]/g, String($('Webhook1').item.json.body.ticketRef || $('Webhook1').item.json.body.ticketId || '')).replace(/\\[Ticket subject\\]/g, String($('Webhook1').item.json.body.subject || '')).replace(/\\[Customer name\\]/g, String($('Webhook1').item.json.body.toName || '')).replace(/\\[Request type\\]/g, String($('Webhook1').item.json.body.requestType || 'Support Request')).replace(/<message from the dashboard field>/g, String($('Webhook1').item.json.body.message || '').replace(/\\n/g, '<br>')) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3872,
+        -832
+      ],
+      "id": "407e63c6-7f92-4cdb-8596-3964e5348c8a",
+      "name": "Set Support Reply HTML"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html> <html lang=\"en\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\"> <head> <meta charset=\"utf-8\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"> <meta name=\"format-detection\" content=\"telephone=no,date=no,address=no,email=no\"> <!--[if mso]> <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript> <![endif]--> <title>Your ticket is closed</title> <style> @import url(\\'https://fonts.googleapis.com/css2?family=Overused+Grotesk:wght@400;500;600&display=swap\\'); * { box-sizing: border-box; } body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; } img { border:0; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; } table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; } body { margin:0; padding:0; background-color:#ffffff; } /* ── MOBILE ONLY ── */ @media only screen and (max-width:620px) { .email-wrap { width:100% !important; } .pad24 { padding-left:16px !important; padding-right:16px !important; } .banner-inner { padding:16px !important; } .banner-status { font-size:22px !important; line-height:26px !important; } .email-title { font-size:20px !important; } .body-para { font-size:15px !important; } .logo-cell { padding-top:20px !important; padding-bottom:12px !important; } .reply-link { font-size:15px !important; } } </style> </head> <body style=\"margin:0;padding:0;background-color:#ffffff;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#ffffff;\"> <tr> <td align=\"center\" style=\"padding:20px 10px;\"> <!-- Email container: max 600px, white bg --> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" class=\"email-wrap\" style=\"max-width:600px;width:100%;background-color:#ffffff;\"> <!-- ─ BRAND HEADER ─ --> <!-- Logo --> <tr> <td align=\"center\" class=\"logo-cell pad24\" style=\"padding:24px 24px 0;\"> <img src=\"https://cdn.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=200\" width=\"80\" height=\"80\" alt=\"NAF Logo\" style=\"width:80px;height:80px;display:block;margin:0 auto;border:0;border-radius:50%;overflow:hidden;\"> </td> </tr> <!-- Title --> <tr> <td align=\"center\" class=\"pad24\" style=\"padding:18px 24px 18px;\"> <p class=\"email-title\" style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:24px;font-weight:500; color:#1B1D1B;line-height:24px;text-align:center;\">Your ticket is closed</p> </td> </tr> <!-- Status Banner --> <tr> <td class=\"pad24\" style=\"padding:0 24px 24px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#78F080;border-radius:12px;overflow:hidden;\"> <tr> <td class=\"banner-inner\" style=\"padding:24px;\"> <p style=\"margin:0 0 6px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px;font-weight:500; color:#17371C;line-height:18px;letter-spacing:0.3px;\">NAF SUPPORT</p> <p class=\"banner-status\" style=\"margin:0 0 8px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:26px;font-weight:500; color:#152D18;line-height:30px;\">Closed</p> <p style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:14px;font-weight:400; color:#26462B;line-height:18px;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '&nbsp;&nbsp;&#183;&nbsp;&nbsp;' + ($('Webhook1').item.json.body.subject || '') + '</p> </td> </tr> </table> </td> </tr> <!-- ─ SUPPORT MESSAGE ─ --> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Hello ' + ($('Webhook1').item.json.body.toName || '') + ', </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Our team has completed your request and marked this ticket as Closed. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border:1px solid #E5E7E5;border-radius:6px;background-color:#FAFAFA;overflow:hidden;\"> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Reference </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.ticketRef || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Subject </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.subject || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Request type </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.requestType || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;\"> Status </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;\"> Closed </td> </tr> </table> </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> If you still need help with this request, reply to this email and our team will review it. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 12px;\"> <a href=\"mailto:ldintertechinnovation@outlook.com?subject=Re: ' + ($('Webhook1').item.json.body.subject || '') + ' (' + ($('Webhook1').item.json.body.ticketRef || '') + ')\" class=\"reply-link\" style=\"display:block;width:100%;padding:12px 24px; background-color:#78F080;border-radius:7px; text-align:center;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:500;color:#152D18;text-decoration:none; line-height:24px;box-sizing:border-box;\"> Reply to this email </a> </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px; font-weight:400;color:#707670;line-height:18px;\"> Keep <strong style=\"font-weight:500;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '</strong> in the subject so we can keep your conversation together. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 32px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> With warm regards,<br>Your NAF Germany support team </td> </tr> <!-- ─ FOOTER ─ --> <tr> <td style=\\\"padding:0;\\\"> <!--[if mso]><table width=\\\"600\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td><![endif]--> <table role=\\\"presentation\\\" width=\\\"100%\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background-color:#1A1A1A;\\\"> <!-- Social Icons --> <tr> <td align=\\\"center\\\" style=\\\"padding:28px 25px 20px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"> <tr> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.facebook.com/p/NAF-New-Age-of-Food-by-Gasthof-Halsbach-61551546894852/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/facebook.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Facebook\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.instagram.com/nafbygasthofhalsbach/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/instagram.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Instagram\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.linkedin.com/in/odette-lamkhizni-42a241251/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/linkedin.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"LinkedIn\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.youtube.com/@NAFbyGasthofHalsbach\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/youtube-play.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"YouTube\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> </tr> </table> </td> </tr> <!-- Divider 1 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Address --> <tr> <td align=\\\"center\\\" style=\\\"padding:16px 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> NAF &#8212; New Age of Food GmbH<br> Obere Stra&#223;e 3, 09599 Freiberg, OT Halsbach<br> Sales: info@naf-halsbach.de<br> Support: support@naf-halsbach.de<br> Phone: 0152 &#8212; 28387141 </td> </tr> <!-- Divider 2 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Legal --> <tr> <td style=\\\"padding:16px 25px 12px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message. </td> </tr> <tr> <td style=\\\"padding:0 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> If you did not initiate this action or believe this email was sent in error, please contact our support team. </td> </tr> <!-- Copyright --> <tr> <td style=\\\"padding:0 25px 24px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr> <td style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> &#169; 2026 NAF &#8212; New Age of Food GmbH </td> <td align=\\\"right\\\" style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> All Rights Reserved </td> </tr> </table> </td> </tr> </table> <!--[if mso]></td></tr></table><![endif]--> </td> </tr> </table> </td> </tr> </table> </body> </html>' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3872,
+        -640
+      ],
+      "id": "51456b28-8447-4829-8041-231a4ece4df1",
+      "name": "Set Ticket Closed HTML"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "html_body",
+              "value": "={{ '<!DOCTYPE html> <html lang=\"en\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\"> <head> <meta charset=\"utf-8\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"> <meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"> <meta name=\"format-detection\" content=\"telephone=no,date=no,address=no,email=no\"> <!--[if mso]> <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript> <![endif]--> <title>Let&#39;s continue helping you</title> <style> @import url(\\'https://fonts.googleapis.com/css2?family=Overused+Grotesk:wght@400;500;600&display=swap\\'); * { box-sizing: border-box; } body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; } img { border:0; line-height:100%; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; } table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; } body { margin:0; padding:0; background-color:#ffffff; } /* ── MOBILE ONLY ── */ @media only screen and (max-width:620px) { .email-wrap { width:100% !important; } .pad24 { padding-left:16px !important; padding-right:16px !important; } .banner-inner { padding:16px !important; } .banner-status { font-size:22px !important; line-height:26px !important; } .email-title { font-size:20px !important; } .body-para { font-size:15px !important; } .logo-cell { padding-top:20px !important; padding-bottom:12px !important; } .reply-link { font-size:15px !important; } } </style> </head> <body style=\"margin:0;padding:0;background-color:#ffffff;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#ffffff;\"> <tr> <td align=\"center\" style=\"padding:20px 10px;\"> <!-- Email container: max 600px, white bg --> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" class=\"email-wrap\" style=\"max-width:600px;width:100%;background-color:#ffffff;\"> <!-- ─ BRAND HEADER ─ --> <!-- Logo --> <tr> <td align=\"center\" class=\"logo-cell pad24\" style=\"padding:24px 24px 0;\"> <img src=\"https://cdn.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=200\" width=\"80\" height=\"80\" alt=\"NAF Logo\" style=\"width:80px;height:80px;display:block;margin:0 auto;border:0;border-radius:50%;overflow:hidden;\"> </td> </tr> <!-- Title --> <tr> <td align=\"center\" class=\"pad24\" style=\"padding:18px 24px 18px;\"> <p class=\"email-title\" style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:24px;font-weight:500; color:#1B1D1B;line-height:24px;text-align:center;\">Let&#39;s continue helping you</p> </td> </tr> <!-- Status Banner --> <tr> <td class=\"pad24\" style=\"padding:0 24px 24px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#78F080;border-radius:12px;overflow:hidden;\"> <tr> <td class=\"banner-inner\" style=\"padding:24px;\"> <p style=\"margin:0 0 6px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px;font-weight:500; color:#17371C;line-height:18px;letter-spacing:0.3px;\">NAF SUPPORT</p> <p class=\"banner-status\" style=\"margin:0 0 8px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:26px;font-weight:500; color:#152D18;line-height:30px;\">Open</p> <p style=\"margin:0;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:14px;font-weight:400; color:#26462B;line-height:18px;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '&nbsp;&nbsp;&#183;&nbsp;&nbsp;' + ($('Webhook1').item.json.body.subject || '') + '</p> </td> </tr> </table> </td> </tr> <!-- ─ SUPPORT MESSAGE ─ --> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Hello ' + ($('Webhook1').item.json.body.toName || '') + ', </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> Your ticket has been reopened. We will continue reviewing your request in this same conversation. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;\"> <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border:1px solid #E5E7E5;border-radius:6px;background-color:#FAFAFA;overflow:hidden;\"> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Reference </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.ticketRef || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Subject </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.subject || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> Request type </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5;\"> ' + ($('Webhook1').item.json.body.requestType || '') + ' </td> </tr> <tr> <td style=\"width:144px;padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:400;color:#707670;line-height:18px;vertical-align:top;\"> Status </td> <td style=\"padding:12px 16px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:13px; font-weight:500;color:#252A25;line-height:18px;vertical-align:top;\"> Open </td> </tr> </table> </td> </tr> <tr> <td class=\"pad24 body-para\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> You can reply with any new details. Your original reference and previous messages stay with this ticket. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 12px;\"> <a href=\"mailto:ldintertechinnovation@outlook.com?subject=Re: ' + ($('Webhook1').item.json.body.subject || '') + ' (' + ($('Webhook1').item.json.body.ticketRef || '') + ')\" class=\"reply-link\" style=\"display:block;width:100%;padding:12px 24px; background-color:#78F080;border-radius:7px; text-align:center;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:500;color:#152D18;text-decoration:none; line-height:24px;box-sizing:border-box;\"> Reply to this email </a> </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:12px; font-weight:400;color:#707670;line-height:18px;\"> Keep <strong style=\"font-weight:500;\">' + ($('Webhook1').item.json.body.ticketRef || '') + '</strong> in the subject so we can keep your conversation together. </td> </tr> <tr> <td class=\"pad24\" style=\"padding:0 24px 32px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:16px; font-weight:400;color:#393B39;line-height:24px;\"> With warm regards,<br>Your NAF Germany support team </td> </tr> <!-- ─ FOOTER ─ --> <tr> <td style=\\\"padding:0;\\\"> <!--[if mso]><table width=\\\"600\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td><![endif]--> <table role=\\\"presentation\\\" width=\\\"100%\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" style=\\\"background-color:#1A1A1A;\\\"> <!-- Social Icons --> <tr> <td align=\\\"center\\\" style=\\\"padding:28px 25px 20px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"> <tr> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.facebook.com/p/NAF-New-Age-of-Food-by-Gasthof-Halsbach-61551546894852/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/facebook.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Facebook\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.instagram.com/nafbygasthofhalsbach/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/instagram.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"Instagram\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.linkedin.com/in/odette-lamkhizni-42a241251/\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/linkedin.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"LinkedIn\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> <td style=\\\"padding:0 12px;\\\"> <a href=\\\"https://www.youtube.com/@NAFbyGasthofHalsbach\\\" style=\\\"text-decoration:none;\\\" target=\\\"_blank\\\"> <img src=\\\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/youtube-play.png\\\" width=\\\"20\\\" height=\\\"20\\\" alt=\\\"YouTube\\\" style=\\\"display:block;width:20px;height:20px;border:0;\\\"> </a> </td> </tr> </table> </td> </tr> <!-- Divider 1 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Address --> <tr> <td align=\\\"center\\\" style=\\\"padding:16px 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> NAF &#8212; New Age of Food GmbH<br> Obere Stra&#223;e 3, 09599 Freiberg, OT Halsbach<br> Sales: info@naf-halsbach.de<br> Support: support@naf-halsbach.de<br> Phone: 0152 &#8212; 28387141 </td> </tr> <!-- Divider 2 --> <tr> <td style=\\\"padding:0 25px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr><td style=\\\"border-top:1px solid #333333;font-size:0;line-height:0;\\\">&nbsp;</td></tr> </table> </td> </tr> <!-- Legal --> <tr> <td style=\\\"padding:16px 25px 12px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> You are receiving this email because it relates to your NAF account or activity. This email was sent for informational or service-related purposes and is not a marketing or promotional message. </td> </tr> <tr> <td style=\\\"padding:0 25px 20px;font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px; font-weight:400;color:#ffffff;line-height:17px;\\\"> If you did not initiate this action or believe this email was sent in error, please contact our support team. </td> </tr> <!-- Copyright --> <tr> <td style=\\\"padding:0 25px 24px;\\\"> <table role=\\\"presentation\\\" border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\" width=\\\"100%\\\"> <tr> <td style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> &#169; 2026 NAF &#8212; New Age of Food GmbH </td> <td align=\\\"right\\\" style=\\\"font-family:\\'Overused Grotesk\\', Arial, Helvetica, sans-serif;font-size:11px;color:#ffffff;\\\"> All Rights Reserved </td> </tr> </table> </td> </tr> </table> <!--[if mso]></td></tr></table><![endif]--> </td> </tr> </table> </td> </tr> </table> </body> </html>' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3872,
+        -448
+      ],
+      "id": "6f251e4a-4053-49f6-8b43-73b41ff07cdb",
+      "name": "Set Ticket Reopened HTML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst webhookData = $(\"Webhook1\").first();\nconst body = webhookData.json.body || webhookData.json || {};\nconst atts = body.attachments || [];\n\nfor (const item of items) {\n  if (atts.length > 0) {\n    item.binary = {};\n    for (let i = 0; i < atts.length; i++) {\n      const key = \"attachment_\" + i;\n      item.binary[key] = {\n        data: atts[i].data,\n        mimeType: atts[i].mimeType || \"application/octet-stream\",\n        fileName: atts[i].fileName || \"file_\" + i\n      };\n    }\n    item.json.hasAttachments = true;\n    item.json.binaryKeys = Object.keys(item.binary).join(\",\");\n  } else {\n    item.json.hasAttachments = false;\n    item.json.binaryKeys = \"\";\n  }\n}\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3648,
+        -832
+      ],
+      "id": "b4089cc9-cc62-4cfd-9497-c31ff86d77eb",
+      "name": "Restore Binary Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.hasAttachments }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3424,
+        -832
+      ],
+      "id": "27a4a443-7798-4437-b0ea-e1488893522e",
+      "name": "Has Attachments?"
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $('Webhook1').item.json.body.to }}",
+        "subject": "={{ $('Webhook1').item.json.body.subject }}",
+        "bodyContent": "={{ $json.html_body }}",
+        "additionalFields": {
+          "attachments": {
+            "attachments": [
+              {
+                "binaryPropertyName": "={{ $json.binaryKeys }}"
+              }
+            ]
+          },
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -3200,
+        -928
+      ],
+      "id": "156e1bda-f5e6-4325-a63a-f00515f9acb4",
+      "name": "Send Email (With Attachments)",
+      "webhookId": "ec318fef-d264-434b-9d38-cef48375e140",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $('Webhook1').item.json.body.to }}",
+        "subject": "={{ $('Webhook1').item.json.body.subject }}",
+        "bodyContent": "={{ $json.html_body }}",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -3200,
+        -736
+      ],
+      "id": "1d4a1edc-7f9c-4df3-837c-7356b4d5aa08",
+      "name": "Send Email (No Attachments)",
+      "webhookId": "dd019cf2-2642-46d5-83d8-765539cc09a7",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, to: $('Webhook1').item.json.body.to, subject: $('Webhook1').item.json.body.subject }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -2976,
+        -832
+      ],
+      "id": "7f06b177-32e1-4cc1-bacc-56839ee46dfc",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [
+          {
+            "node": "Set Ticket Received HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set In Progress HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Support Reply HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Ticket Closed HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Ticket Reopened HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Received HTML": {
+      "main": [
+        [
+          {
+            "node": "Restore Binary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set In Progress HTML": {
+      "main": [
+        [
+          {
+            "node": "Restore Binary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Support Reply HTML": {
+      "main": [
+        [
+          {
+            "node": "Restore Binary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Closed HTML": {
+      "main": [
+        [
+          {
+            "node": "Restore Binary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Ticket Reopened HTML": {
+      "main": [
+        [
+          {
+            "node": "Restore Binary Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Binary Data": {
+      "main": [
+        [
+          {
+            "node": "Has Attachments?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?": {
+      "main": [
+        [
+          {
+            "node": "Send Email (With Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email (No Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (With Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (No Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c53257bed1f0fcf835991b184a5f5a690a62c31f39b42c9afb9d86ed3ee22612"
+  }
+}

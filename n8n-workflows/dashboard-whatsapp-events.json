@@ -1,0 +1,322 @@
+{
+  "name": "NAF Dashboard WhatsApp Ticket Events",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-ticket-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0f7b1c4d-2e3a-4b5c-9d6e-7f8a9b0c1d2e",
+      "name": "Dashboard WhatsApp Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "6e5d4c3b-2a1f-0e9d-8c7b-6a5f4e3d2c1b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst eventType = String(incoming.eventType || 'REPLY_SENT').trim().toUpperCase();\nconst ticketRef = String(incoming.ticketRef || incoming.ticketReference || incoming.ticketNumber || incoming.ticketId || '').trim();\nconst rawRecipient = String(incoming.to || incoming.phone || incoming.whatsappNumber || '').trim();\nconst digits = rawRecipient.replace(/\\D/g, '');\nconst normalizedDigits = digits.length === 10 ? `91${digits}` : digits;\nconst phone = normalizedDigits ? `+${normalizedDigits}` : '';\nconst status = String(incoming.ticketStatus || incoming.status || '').trim().toUpperCase();\nconst defaultMessages = {\n  TICKET_RECEIVED: ticketRef ? `Your support ticket ${ticketRef} has been created and is now open.` : 'Your support ticket has been created and is now open.',\n  OPEN: ticketRef ? `Your support ticket ${ticketRef} has been reopened. We will continue helping you.` : 'Your support ticket has been reopened. We will continue helping you.',\n  IN_PROGRESS: ticketRef ? `Your support ticket ${ticketRef} is now in progress. Our support team is working on it.` : 'Your support ticket is now in progress. Our support team is working on it.',\n  CLOSED: ticketRef ? `Your support ticket ${ticketRef} has been closed. If you still need help, reply with this ticket reference.` : 'Your support ticket has been closed. If you still need help, reply to this message.'\n};\nlet message = String(incoming.message || '').trim();\nif (!message) message = defaultMessages[status] || defaultMessages[eventType] || (ticketRef ? `Our support team replied regarding ticket ${ticketRef}.` : 'Our support team replied to your support request.');\nif (ticketRef && eventType === 'REPLY_SENT' && !message.toLowerCase().includes(ticketRef.toLowerCase())) message = `Ticket ${ticketRef}: ${message}`;\nconst attachments = Array.isArray(incoming.attachments) ? incoming.attachments.filter(item => item && (item.data || item.base64 || item.content)) : [];\nconst firstAttachment = attachments[0] || null;\nlet binary = undefined;\nlet attachmentType = '';\nif (firstAttachment) {\n  const mimeType = String(firstAttachment.mimeType || firstAttachment.type || 'application/octet-stream');\n  const base64 = String(firstAttachment.data || firstAttachment.base64 || firstAttachment.content || '').replace(/^data:[^;]+;base64,/, '');\n  attachmentType = mimeType.startsWith('image/') ? 'image' : 'document';\n  binary = { data: { data: base64, mimeType, fileName: String(firstAttachment.fileName || firstAttachment.name || 'support-attachment') } };\n}\nreturn [{ json: { eventType, ticketRef, ticketId: incoming.ticketId || ticketRef, ticketStatus: status || 'OPEN', phone, message, hasAttachment: Boolean(binary), attachmentType, mediaCaption: ticketRef ? `Attachment for ticket ${ticketRef}` : 'Support ticket attachment' }, ...(binary ? { binary } : {}) }];"
+      },
+      "id": "1a8b2c3d-4e5f-6071-8293-a4b5c6d7e8f9",
+      "name": "Normalize Dashboard WhatsApp Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1241294992410268",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "textBody": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "2b9c3d4e-5f60-7182-93a4-b5c6d7e8f901",
+      "name": "Send Dashboard WhatsApp Text",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        760,
+        140
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "1WR2gXH816vLinFg",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const original = $('Normalize Dashboard WhatsApp Event').item;\nreturn [{ json: original.json, ...(original.binary ? { binary: original.binary } : {}) }];"
+      },
+      "id": "3c0d4e5f-6071-8293-a4b5-c6d7e8f90112",
+      "name": "Restore Dashboard WhatsApp Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasAttachment }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "6a3f5e7d-8c9b-4a10-b2c3-d4e5f6071829",
+      "name": "Has Dashboard Attachment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1241294992410268",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "messageType": "image",
+        "mediaPath": "useMedian8n",
+        "mediaPropertyName": "data",
+        "additionalFields": {
+          "mediaCaption": "={{ $json.mediaCaption }}"
+        }
+      },
+      "id": "4d1e5f60-7182-93a4-b5c6-d7e8f9011223",
+      "name": "Send Dashboard WhatsApp Image",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1020,
+        340
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "1WR2gXH816vLinFg",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dashboard-attachment-image-condition",
+              "leftValue": "={{ $json.attachmentType }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8c5d7e9f-102a-4b3c-d5e6-f708192a3b4c",
+      "name": "Dashboard Attachment Is Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1480,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1241294992410268",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "messageType": "document",
+        "mediaPath": "useMedian8n",
+        "mediaPropertyName": "data",
+        "additionalFields": {
+          "mediaCaption": "={{ $json.mediaCaption }}"
+        }
+      },
+      "id": "9d6e8f10-213a-4b5c-d6e7-f8091a2b3c4d",
+      "name": "Send Dashboard WhatsApp Document",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1740,
+        220
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "1WR2gXH816vLinFg",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, eventType: $('Normalize Dashboard WhatsApp Event').item.json.eventType, ticketRef: $('Normalize Dashboard WhatsApp Event').item.json.ticketRef, attachmentSent: false }) }}",
+        "options": {}
+      },
+      "id": "5e2f6071-8293-a4b5-c6d7-e8f901122334",
+      "name": "Respond to Dashboard Event Without Attachment",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, eventType: $('Normalize Dashboard WhatsApp Event').item.json.eventType, ticketRef: $('Normalize Dashboard WhatsApp Event').item.json.ticketRef, attachmentSent: true }) }}",
+        "options": {}
+      },
+      "id": "7b4c6d8e-9f10-4a2b-c3d4-e5f607182930",
+      "name": "Respond to Dashboard Event With Attachment",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        340
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Dashboard WhatsApp Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Dashboard WhatsApp Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Dashboard WhatsApp Event": {
+      "main": [
+        [
+          {
+            "node": "Send Dashboard WhatsApp Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Dashboard WhatsApp Text": {
+      "main": [
+        [
+          {
+            "node": "Restore Dashboard WhatsApp Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Dashboard WhatsApp Context": {
+      "main": [
+        [
+          {
+            "node": "Has Dashboard Attachment?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dashboard Attachment?": {
+      "main": [
+        [
+          {
+            "node": "Dashboard Attachment Is Image?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Dashboard Event Without Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dashboard Attachment Is Image?": {
+      "main": [
+        [
+          {
+            "node": "Send Dashboard WhatsApp Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Dashboard WhatsApp Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Dashboard WhatsApp Image": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard Event With Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Dashboard WhatsApp Document": {
+      "main": [
+        [
+          {
+            "node": "Respond to Dashboard Event With Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6f307182-93a4-b5c6-d7e8-f90112233445",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "naf-dashboard-whatsapp-events",
+  "tags": []
+}
