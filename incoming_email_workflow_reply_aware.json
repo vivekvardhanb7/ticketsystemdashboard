@@ -1,0 +1,651 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "output": "fields",
+        "fields": [
+          "body",
+          "bodyPreview",
+          "subject",
+          "from",
+          "sender",
+          "hasAttachments",
+          "receivedDateTime"
+        ],
+        "filters": {
+          "custom": "isRead eq false",
+          "foldersToInclude": [
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACAQwAAAA=",
+            "AQMkADAwATMwMAExLWI3MDktNzJmNS0wMAItMDAKAC4AAAOCikpjvRZnQZwyrjfEKWa6AQBS0PY_ueURSbXH8W-bp80lAAACARMAAAA="
+          ]
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        -11840,
+        2080
+      ],
+      "id": "a007dcf9-e413-4823-ac17-6498b57571db",
+      "name": "Microsoft Outlook Trigger6",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nconst results = [];\n\n// ==========================================\n// 1. DECODE HTML ENTITIES\n// ==========================================\n\nfunction decodeHtmlEntities(text) {\n  const entities = {\n    amp: '&',\n    lt: '<',\n    gt: '>',\n    quot: '\"',\n    apos: \"'\",\n    nbsp: ' ',\n    ndash: '–',\n    mdash: '—',\n    hellip: '…',\n    bull: '•',\n    euro: '€',\n    copy: '©',\n    reg: '®',\n    auml: 'ä',\n    ouml: 'ö',\n    uuml: 'ü',\n    Auml: 'Ä',\n    Ouml: 'Ö',\n    Uuml: 'Ü',\n    szlig: 'ß',\n    rsquo: '’',\n    lsquo: '‘',\n    rdquo: '”',\n    ldquo: '“'\n  };\n\n  return String(text || '').replace(\n    /&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]+);/gi,\n    (match, entity) => {\n\n      if (entity.startsWith('#')) {\n        const isHex = /^#x/i.test(entity);\n\n        const code = parseInt(\n          entity.slice(isHex ? 2 : 1),\n          isHex ? 16 : 10\n        );\n\n        try {\n          return String.fromCodePoint(code);\n        } catch {\n          return match;\n        }\n      }\n\n      return entities[entity] ??\n        entities[entity.toLowerCase()] ??\n        match;\n    }\n  );\n}\n\n// ==========================================\n// 2. CONVERT HTML EMAIL TO READABLE TEXT\n// ==========================================\n\nfunction htmlToText(html) {\n  let text = String(html || '');\n\n  // Remove HTML head, CSS and scripts\n  text = text.replace(\n    /<head\\b[^>]*>[\\s\\S]*?<\\/head>/gi,\n    ''\n  );\n\n  text = text.replace(\n    /<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi,\n    ''\n  );\n\n  text = text.replace(\n    /<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi,\n    ''\n  );\n\n  text = text.replace(\n    /<noscript\\b[^>]*>[\\s\\S]*?<\\/noscript>/gi,\n    ''\n  );\n\n  // Remove HTML comments\n  text = text.replace(\n    /<!--[\\s\\S]*?-->/g,\n    ''\n  );\n\n  // Remove hidden preview elements\n  text = text.replace(\n    /<(div|span|p)\\b(?=[^>]*style\\s*=\\s*[\"'][^\"']*display\\s*:\\s*none)[^>]*>[\\s\\S]*?<\\/\\1>/gi,\n    ''\n  );\n\n  // Remove images, including tracking pixels\n  text = text.replace(\n    /<img\\b[^>]*>/gi,\n    ''\n  );\n\n  // Preserve line breaks\n  text = text.replace(\n    /<br\\s*\\/?>/gi,\n    '\\n'\n  );\n\n  // Preserve list formatting\n  text = text.replace(\n    /<li\\b[^>]*>/gi,\n    '\\n• '\n  );\n\n  // Preserve paragraphs and headings\n  text = text.replace(\n    /<\\/(?:p|div|h[1-6]|section|article|blockquote)>/gi,\n    '\\n\\n'\n  );\n\n  // Preserve table and list structure\n  text = text.replace(\n    /<\\/(?:tr|table|ul|ol|li)>/gi,\n    '\\n'\n  );\n\n  text = text.replace(\n    /<\\/(?:td|th)>/gi,\n    '  '\n  );\n\n  // Remove remaining HTML tags\n  text = text.replace(\n    /<[^>]+>/g,\n    ''\n  );\n\n  // Decode HTML entities\n  text = decodeHtmlEntities(text);\n\n  // Remove invisible formatting characters\n  text = text.replace(\n    /[\\u200B-\\u200F\\u034F\\uFEFF\\u2060]/g,\n    ''\n  );\n\n  // Normalize line endings\n  text = text.replace(\n    /\\r\\n?/g,\n    '\\n'\n  );\n\n  // Remove extra spaces without\n  // removing paragraph breaks\n  text = text.replace(\n    /[^\\S\\n]+/g,\n    ' '\n  );\n\n  text = text.replace(\n    / *\\n */g,\n    '\\n'\n  );\n\n  // Remove excessive blank lines\n  text = text.replace(\n    /\\n{3,}/g,\n    '\\n\\n'\n  );\n\n  return text.trim();\n}\n\n// ==========================================\n// 3. PROCESS ALL INCOMING EMAILS\n// ==========================================\n\nfor (const inputItem of items) {\n\n  const item = inputItem.json;\n\n  // ========================================\n  // 4. EXTRACT SENDER INFORMATION\n  // ========================================\n\n  let senderName = '';\n  let senderEmail = '';\n\n  if (typeof item.from === 'string') {\n\n    senderEmail = item.from;\n\n  } else if (item.from?.emailAddress) {\n\n    senderEmail =\n      item.from.emailAddress.address || '';\n\n    senderName =\n      item.from.emailAddress.name || '';\n  }\n\n  // Fallback to sender object\n  if (!senderEmail && item.sender) {\n\n    if (typeof item.sender === 'string') {\n\n      senderEmail = item.sender;\n\n    } else if (item.sender.emailAddress) {\n\n      senderEmail =\n        item.sender.emailAddress.address || '';\n\n      senderName =\n        senderName ||\n        item.sender.emailAddress.name ||\n        '';\n    }\n  }\n\n  // Generate a display name when missing\n  if (!senderName && senderEmail) {\n\n    const namePart =\n      senderEmail.split('@')[0] || '';\n\n    senderName = namePart\n      .replace(/[._-]/g, ' ')\n      .replace(/\\b\\w/g, c => c.toUpperCase());\n  }\n\n  // ========================================\n  // 5. EXTRACT EMAIL SUBJECT\n  // ========================================\n\n  const subject = item.subject || '';\n  const ticketReferences = subject.match(/\\bNAF-[A-Z0-9]+(?:-[A-Z0-9]+)*\\b/gi) || [];\n  const ticketRef = (ticketReferences[ticketReferences.length - 1] || '').toUpperCase();\n\n  // ========================================\n  // 6. EXTRACT COMPLETE EMAIL BODY\n  // ========================================\n\n  let fullBody = '';\n  let bodySource = '';\n\n  // First priority: complete Outlook body\n  if (\n    typeof item.body?.content === 'string' &&\n    item.body.content.trim()\n  ) {\n\n    fullBody = item.body.content;\n    bodySource = 'body.content';\n\n  } else if (\n    typeof item.body === 'string' &&\n    item.body.trim()\n  ) {\n\n    fullBody = item.body;\n    bodySource = 'body';\n\n  } else if (\n    typeof item.uniqueBody?.content === 'string' &&\n    item.uniqueBody.content.trim()\n  ) {\n\n    fullBody = item.uniqueBody.content;\n    bodySource = 'uniqueBody.content';\n  }\n\n  const bodyPreview = item.bodyPreview || '';\n\n  const contentType = String(\n    item.body?.contentType ||\n    item.uniqueBody?.contentType ||\n    ''\n  ).toLowerCase();\n\n  let description = '';\n\n  if (fullBody) {\n\n    const isHtml =\n      contentType === 'html' ||\n      /<(html|body|div|p|br|table|span)\\b/i.test(fullBody);\n\n    if (isHtml) {\n\n      description = htmlToText(fullBody);\n\n    } else {\n\n      description = fullBody\n        .replace(/\\r\\n?/g, '\\n')\n        .trim();\n    }\n\n  } else {\n\n    // Only use preview if full body is missing\n    description = String(bodyPreview).trim();\n\n    bodySource = 'bodyPreview (INCOMPLETE)';\n  }\n\n  // ========================================\n  // 7. KEEP COMPLETE DESCRIPTION\n  // ========================================\n\n  // NO CHARACTER LIMIT\n  // NO SLICE()\n  // NO TRUNCATION\n  // FULL EMAIL DESCRIPTION IS PRESERVED\n\n  description = String(description || '').trim();\n\n  const descriptionLength =\n    Array.from(description).length;\n\n  // ========================================\n  // 8. HANDLE EMAIL ATTACHMENTS\n  // ========================================\n\n  const binary = {};\n  const binaryKeys = [];\n\n  if (inputItem.binary) {\n\n    let i = 0;\n\n    for (\n      const key of Object.keys(inputItem.binary)\n    ) {\n\n      if (\n        key.startsWith('attachment_') ||\n        key.startsWith('mediaFiles')\n      ) {\n\n        const newKey =\n          i === 0\n            ? 'mediaFiles'\n            : `mediaFiles${i}`;\n\n        binary[newKey] =\n          inputItem.binary[key];\n\n        binaryKeys.push(newKey);\n\n        i++;\n      }\n    }\n  }\n\n  const hasAttachments =\n    binaryKeys.length > 0;\n\n  const attachmentMetadata = binaryKeys.map((key) => {\n    const attachment = inputItem.binary?.[key] || {};\n    const rawSize = attachment.fileSize ?? attachment.size ?? 0;\n    const parsedSize = typeof rawSize === 'number' ? rawSize : Number.parseInt(String(rawSize), 10);\n    return {\n      name: String(attachment.fileName || key),\n      size: Number.isFinite(parsedSize) ? parsedSize : 0,\n      type: String(attachment.mimeType || attachment.fileType || 'application/octet-stream')\n    };\n  });\n\n  // ========================================\n  // 9. RETURN DATA FOR NAF SUPPORT API\n  // ========================================\n\n  results.push({\n\n    json: {\n\n      // Customer details\n      fullName: senderName,\n      email: senderEmail,\n\n      // Email subject\n      subject: subject,\n      ticketRef: ticketRef,\n      receivedDateTime: item.receivedDateTime || new Date().toISOString(),\n\n      // COMPLETE EMAIL DESCRIPTION\n      // NO CHARACTER LIMIT\n      description: description,\n\n      // Support ticket fields\n      requestType: 'other',\n      accountType: 'not_collected',\n      source: 'Email',\n\n      // Outlook message ID\n      messageId: item.id || '',\n\n      // Attachment details\n      hasAttachments: hasAttachments,\n      binaryKeys: binaryKeys.join(','),\n      attachmentMetadata: attachmentMetadata,\n\n      // Debug details\n      bodySource: bodySource,\n\n      bodyLength: descriptionLength,\n\n      originalDescriptionLength:\n        descriptionLength,\n\n      descriptionTruncated: false,\n\n      fullBodyExtracted:\n        Boolean(fullBody)\n    },\n\n    // Preserve attachment binary data\n    ...(hasAttachments ? { binary } : {})\n  });\n}\n\n// ==========================================\n// 10. RETURN ALL PROCESSED EMAILS\n// ==========================================\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11392,
+        2080
+      ],
+      "id": "30f09679-9035-441b-a911-e6c2ffaa1571",
+      "name": "Extract Email Data2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://staging-api.naf-cloudsystem.de/api/NAFWebsite/support-issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "issueData",
+              "value": "={{ JSON.stringify({ fullName: $json.fullName || \"\", email: $json.email || \"\", phoneNumber: \"\", machineLocation: \"\", accountType: $json.accountType || \"Customer\", requestType: $json.requestType || \"Email Support\", subject: $json.subject || \"\", description: $json.description || \"\", source: $json.source || \"Email\" }) }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "mediaFiles",
+              "inputDataFieldName": "mediaFiles"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10944,
+        1984
+      ],
+      "id": "b227d7db-9340-40b7-b072-48c6ed5ed995",
+      "name": "Create Ticket (With Attachments)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://staging-api.naf-cloudsystem.de/api/NAFWebsite/support-issues",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "issueData",
+              "value": "={{ JSON.stringify({ fullName: $json.fullName || \"\", email: $json.email || \"\", phoneNumber: \"\", machineLocation: \"\", accountType: $json.accountType || \"Customer\", requestType: $json.requestType || \"Email Support\", subject: $json.subject || \"\", description: $json.description || \"\", source: $json.source || \"Email\" }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10944,
+        2176
+      ],
+      "id": "af73ab72-5068-48d7-a7ab-a019b4cf7f53",
+      "name": "Create Ticket (No Attachments)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "messageId": {
+          "__rl": true,
+          "value": "={{ $('Extract Email Data2').item.json.messageId }}",
+          "mode": "id"
+        },
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -10272,
+        2080
+      ],
+      "id": "19a627c2-e423-4db6-bc2e-8550688b2bc2",
+      "name": "Mark as Read",
+      "webhookId": "f97a361e-756a-4900-831f-1e4919050ae5",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-attachments-check",
+              "leftValue": "={{ $json.hasAttachments }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -11168,
+        2080
+      ],
+      "id": "7224cee7-37e1-477e-a99f-eb9ac36bb1b8",
+      "name": "Has Attachments?1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('Extract Email Data2').first().json;\nconst apiResponse = $input.first().json;\n\n// Deep-extract ticket reference from API response (handles nested objects too)\nfunction findTicketRef(obj) {\n  if (!obj || typeof obj !== 'object') return '';\n\n  // Direct field check (most common field names)\n  const fields = ['ticketReference', 'ticketRef', 'ticketNumber', 'issueReference', 'issueNumber', 'referenceNumber', 'ticketId', 'id'];\n\n  for (const f of fields) {\n    if (obj[f] !== undefined && obj[f] !== null && String(obj[f]).trim()) {\n      return String(obj[f]);\n    }\n  }\n\n  // Check nested 'data', 'result', 'body', 'issue', 'ticket' objects\n  for (const nested of ['data', 'result', 'body', 'issue', 'ticket', 'response']) {\n    if (obj[nested] && typeof obj[nested] === 'object') {\n      const found = findTicketRef(obj[nested]);\n      if (found) return found;\n    }\n  }\n\n  return '';\n}\n\nconst rawRef = findTicketRef(apiResponse);\nconst ticketRef = rawRef && !String(rawRef).toUpperCase().startsWith('NAF-') ? 'NAF-' + rawRef : rawRef;\n\nconst toName = email.fullName || '';\nconst subject = email.subject || '';\nconst requestType = email.requestType || 'E-Mail-Support';\nconst font = \"'Overused Grotesk', Arial, sans-serif\";\n\nconst html = '<!DOCTYPE html><html lang=\"de\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"><title>Wir haben Ihre Anfrage erhalten</title></head>'\n+ '<body style=\"margin:0;padding:0;background-color:#ffffff\">'\n+ '<table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#ffffff\"><tr><td align=\"center\" style=\"padding:20px 10px\">'\n+ '<table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" style=\"max-width:600px;width:100%;background-color:#ffffff\">'\n\n// Logo\n+ '<tr><td align=\"center\" style=\"padding:24px 24px 0\"><img src=\"https://cdn.builder.io/api/v1/image/assets/TEMP/a00244f9a136a3dc9b35c70e1f60163cbb3650ec?width=200\" width=\"80\" height=\"80\" alt=\"NAF Logo\" style=\"width:80px;height:80px;display:block;margin:0 auto;border:0;border-radius:50%;overflow:hidden\"></td></tr>'\n\n// Title\n+ '<tr><td align=\"center\" style=\"padding:18px 24px 18px\"><p style=\"margin:0;font-family:' + font + ';font-size:24px;font-weight:500;color:#1B1D1B;line-height:28px;text-align:center\">Wir haben Ihre Anfrage erhalten</p></td></tr>'\n\n// Banner\n+ '<tr><td style=\"padding:0 24px 24px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color:#78F080;border-radius:12px;overflow:hidden\"><tr><td style=\"padding:24px\">'\n+ '<p style=\"margin:0 0 6px;font-family:' + font + ';font-size:12px;font-weight:500;color:#17371C;line-height:18px;letter-spacing:0.3px\">NAF SUPPORT</p>'\n+ '<p style=\"margin:0 0 8px;font-family:' + font + ';font-size:26px;font-weight:500;color:#152D18;line-height:30px\">Offen</p>'\n+ '<p style=\"margin:0;font-family:' + font + ';font-size:14px;font-weight:400;color:#26462B;line-height:18px\">' + ticketRef + '&nbsp;&nbsp;&#183;&nbsp;&nbsp;' + subject + '</p>'\n+ '</td></tr></table></td></tr>'\n\n// Greeting\n+ '<tr><td style=\"padding:0 24px 20px;font-family:' + font + ';font-size:16px;font-weight:400;color:#393B39;line-height:24px\">Hallo ' + toName + ',</td></tr>'\n\n+ '<tr><td style=\"padding:0 24px 20px;font-family:' + font + ';font-size:16px;font-weight:400;color:#393B39;line-height:24px\">Vielen Dank, dass Sie sich an den NAF-Support gewendet haben. Wir haben Ihre Anfrage erhalten und unser Team wird sich um Ihr Anliegen kümmern.</td></tr>'\n\n// Details table\n+ '<tr><td style=\"padding:0 24px 20px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"border:1px solid #E5E7E5;border-radius:6px;background-color:#FAFAFA;overflow:hidden\">'\n\n+ '<tr><td style=\"width:144px;padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">Vorgangsnummer</td><td style=\"padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">' + ticketRef + '</td></tr>'\n\n+ '<tr><td style=\"width:144px;padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">Betreff</td><td style=\"padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">' + subject + '</td></tr>'\n\n+ '<tr><td style=\"width:144px;padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:400;color:#707670;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">Art der Anfrage</td><td style=\"padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:500;color:#252A25;line-height:18px;vertical-align:top;border-bottom:1px solid #E5E7E5\">' + requestType + '</td></tr>'\n\n+ '<tr><td style=\"width:144px;padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:400;color:#707670;line-height:18px;vertical-align:top\">Status</td><td style=\"padding:12px 16px;font-family:' + font + ';font-size:13px;font-weight:500;color:#252A25;line-height:18px;vertical-align:top\">Offen</td></tr>'\n\n+ '</table></td></tr>'\n\n// Reply CTA\n+ '<tr><td style=\"padding:0 24px 20px;font-family:' + font + ';font-size:16px;font-weight:400;color:#393B39;line-height:24px\">Sie können direkt auf diese E-Mail antworten, um weitere Informationen, Fotos oder andere Details hinzuzufügen, die uns helfen, Ihr Anliegen besser zu verstehen.</td></tr>'\n\n+ '<tr><td style=\"padding:0 24px 12px\"><a href=\"mailto:ldintertechinnovation@outlook.com?subject=' + encodeURIComponent('Re: ' + subject + ' (' + ticketRef + ')') + '\" style=\"display:block;width:100%;padding:12px 24px;background-color:#78F080;border-radius:7px;text-align:center;font-family:' + font + ';font-size:16px;font-weight:500;color:#152D18;text-decoration:none;line-height:24px;box-sizing:border-box\">Auf diese E-Mail antworten</a></td></tr>'\n\n// Ticket ref note\n+ '<tr><td style=\"padding:0 24px 20px;font-family:' + font + ';font-size:12px;font-weight:400;color:#707670;line-height:18px\">Bitte behalten Sie die Vorgangsnummer <strong style=\"font-weight:500\">' + ticketRef + '</strong> im Betreff bei, damit wir Ihre Nachrichten dem richtigen Vorgang zuordnen können.</td></tr>'\n\n// Sign off\n+ '<tr><td style=\"padding:0 24px 32px;font-family:' + font + ';font-size:16px;font-weight:400;color:#393B39;line-height:24px\">Mit freundlichen Grüßen,<br>Ihr NAF Deutschland Support-Team</td></tr>'\n\n// Footer\n+ '<tr><td style=\"padding:0\"><table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color:#1A1A1A\">'\n\n+ '<tr><td align=\"center\" style=\"padding:28px 25px 20px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>'\n\n+ '<td style=\"padding:0 12px\"><a href=\"https://www.facebook.com/p/NAF-New-Age-of-Food-by-Gasthof-Halsbach-61551546894852/\" style=\"text-decoration:none\" target=\"_blank\"><img src=\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/facebook.png\" width=\"20\" height=\"20\" alt=\"Facebook\" style=\"display:block;width:20px;height:20px;border:0\"></a></td>'\n\n+ '<td style=\"padding:0 12px\"><a href=\"https://www.instagram.com/nafbygasthofhalsbach/\" style=\"text-decoration:none\" target=\"_blank\"><img src=\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/instagram.png\" width=\"20\" height=\"20\" alt=\"Instagram\" style=\"display:block;width:20px;height:20px;border:0\"></a></td>'\n\n+ '<td style=\"padding:0 12px\"><a href=\"https://www.linkedin.com/in/odette-lamkhizni-42a241251/\" style=\"text-decoration:none\" target=\"_blank\"><img src=\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/linkedin.png\" width=\"20\" height=\"20\" alt=\"LinkedIn\" style=\"display:block;width:20px;height:20px;border:0\"></a></td>'\n\n+ '<td style=\"padding:0 12px\"><a href=\"https://www.youtube.com/@NAFbyGasthofHalsbach\" style=\"text-decoration:none\" target=\"_blank\"><img src=\"https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/white/png/128/youtube-play.png\" width=\"20\" height=\"20\" alt=\"YouTube\" style=\"display:block;width:20px;height:20px;border:0\"></a></td>'\n\n+ '</tr></table></td></tr>'\n\n+ '<tr><td style=\"padding:0 25px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td style=\"border-top:1px solid #333333;font-size:0;line-height:0\">\\u00a0</td></tr></table></td></tr>'\n\n+ '<tr><td align=\"center\" style=\"padding:16px 25px 20px;font-family:' + font + ';font-size:11px;font-weight:400;color:#ffffff;line-height:17px\">NAF \\u2014 New Age of Food GmbH<br>Obere Straße 3, 09599 Freiberg, OT Halsbach<br>Vertrieb: info@naf-halsbach.de<br>Support: support@naf-halsbach.de<br>Telefon: 0152 \\u2014 28387141</td></tr>'\n\n+ '<tr><td style=\"padding:0 25px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td style=\"border-top:1px solid #333333;font-size:0;line-height:0\">\\u00a0</td></tr></table></td></tr>'\n\n+ '<tr><td style=\"padding:16px 25px 12px;font-family:' + font + ';font-size:11px;font-weight:400;color:#ffffff;line-height:17px\">Sie erhalten diese E-Mail, weil sie im Zusammenhang mit Ihrem NAF-Konto oder Ihren Aktivitäten bei NAF steht.</td></tr>'\n\n+ '<tr><td style=\"padding:0 25px 24px\"><table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td style=\"font-family:' + font + ';font-size:11px;color:#ffffff\">\\u00a9 2026 NAF \\u2014 New Age of Food GmbH</td><td align=\"right\" style=\"font-family:' + font + ';font-size:11px;color:#ffffff\">Alle Rechte vorbehalten</td></tr></table></td></tr>'\n\n+ '</table></td></tr>'\n+ '</table></td></tr></table></body></html>';\n\nconst emailSubject = ticketRef\n  ? ticketRef + ' - Wir haben Ihre Anfrage erhalten: ' + subject\n  : 'Wir haben Ihre Anfrage erhalten: ' + subject;\n\nreturn [{\n  json: {\n    html_body: html,\n    to: email.email,\n    toName,\n    subject: emailSubject,\n    _debug_api_keys: Object.keys(apiResponse).join(','),\n    _debug_api_response: JSON.stringify(apiResponse).substring(0, 500)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10720,
+        2080
+      ],
+      "id": "da408e0f-9e73-431a-9444-dfbb6b428e00",
+      "name": "Build Confirmation Email"
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "bodyContent": "={{ $json.html_body }}",
+        "additionalFields": {
+          "bodyContentType": "html"
+        }
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -10496,
+        2080
+      ],
+      "id": "531aaf40-bbfa-4183-a3d6-0cebbb6edf31",
+      "name": "Send Confirmation Email",
+      "webhookId": "41f0cee5-5a7b-42a0-91f3-c9999425e0dc",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "KacOjbALhAoyzjBW",
+          "name": "ldintertech mail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "blocklist-check",
+              "leftValue": "={{ ['info@naf-halsbach.de', 'member_services@outlook.com', 'postmaster@accountprotection.microsoft.com'].includes((typeof $json.from === 'string' ? ($json.from.match(/<([^>]+)>/)?.[1] || $json.from) : ($json.from?.emailAddress?.address || $json.from?.address || '')).trim().toLowerCase()) ? 'BLOCK' : 'ALLOW' }}",
+              "rightValue": "ALLOW",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -11616,
+        2080
+      ],
+      "id": "c7298da7-83d1-46e5-aa45-15f26eb60308",
+      "name": "Filter Sender"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-ticket-reference-check",
+              "leftValue": "={{ $json.ticketRef }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -11200,
+        2080
+      ],
+      "id": "has-ticket-reference-fix",
+      "name": "Has Ticket Reference?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://staging-api.naf-cloudsystem.de/api/NAFWebsite/issues?page=0&size=1000",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Read Authentication Token').first().json.authToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10976,
+        1984
+      ],
+      "id": "lookup-existing-tickets-fix",
+      "name": "Lookup Existing Tickets"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('Extract Email Data2').first().json;\nconst response = $input.first().json || {};\n\nfunction normalizeReference(value) {\n  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');\n}\n\nfunction frontendNumericId(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n  const text = String(value || '').trim();\n  if (/^\\d+$/.test(text)) return Number(text);\n  let hash = 0;\n  for (const character of text) {\n    hash = ((hash << 5) - hash) + character.charCodeAt(0);\n    hash |= 0;\n  }\n  return Math.abs(hash) % 10000;\n}\n\nfunction derivedDisplayReference(ticket) {\n  if (ticket?.id === undefined || ticket?.id === null || ticket.id === '') return '';\n  const rawDate = ticket.submittedAt || ticket.createdDateTime || ticket.receivedDateTime || ticket.createdAt || ticket.created_at;\n  const parsedDate = rawDate ? new Date(rawDate) : new Date();\n  const year = Number.isNaN(parsedDate.getTime()) ? new Date().getUTCFullYear() : parsedDate.getUTCFullYear();\n  return 'NAF-' + year + '-' + (1000 + frontendNumericId(ticket.id));\n}\n\nfunction getTicketList(payload) {\n  const candidates = [payload, payload.body, payload.data, payload.result, payload.response];\n  for (const candidate of candidates) {\n    if (Array.isArray(candidate)) return candidate;\n    if (!candidate || typeof candidate !== 'object') continue;\n    for (const key of ['content', 'data', 'issues', 'tickets', 'results', 'items']) {\n      if (Array.isArray(candidate[key])) return candidate[key];\n    }\n  }\n  return [];\n}\n\nconst wantedReference = normalizeReference(email.ticketRef);\nconst tickets = getTicketList(response);\nconst match = tickets.find((ticket) => {\n  const references = [\n    ticket.ticketReference,\n    ticket.ticketRef,\n    ticket.ticketNumber,\n    ticket.issueReference,\n    ticket.issueNumber,\n    ticket.referenceNumber,\n    ticket.ticketId,\n    ticket.reference,\n    ticket.number,\n    derivedDisplayReference(ticket)\n  ];\n  return references.some((reference) => {\n    const candidate = normalizeReference(reference);\n    return candidate && (\n      candidate === wantedReference ||\n      candidate.endsWith(wantedReference) ||\n      wantedReference.endsWith(candidate)\n    );\n  });\n});\n\nconst ticketId = match?.id || match?.issueId || match?.ticket?.id || match?.issue?.id || '';\n\nreturn [{\n  json: {\n    ...email,\n    ticketId: String(ticketId || ''),\n    matchedTicket: Boolean(ticketId),\n    matchedReference: email.ticketRef,\n    matchedTicketCount: tickets.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10752,
+        1984
+      ],
+      "id": "find-existing-ticket-fix",
+      "name": "Find Existing Ticket"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-matching-ticket-check",
+              "leftValue": "={{ $json.matchedTicket }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -10528,
+        1984
+      ],
+      "id": "has-matching-ticket-fix",
+      "name": "Has Matching Ticket?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://staging-api.naf-cloudsystem.de/api/NAFWebsite/issue/' + encodeURIComponent($json.ticketId) + '/emails' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Read Authentication Token').first().json.authToken }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ subject: String($json.subject || ''), message: String($json.description || ''), senderName: String($json.fullName || ''), senderEmail: String($json.email || ''), senderType: 'Customer', direction: 'inbound', sentAt: $json.receivedDateTime || new Date().toISOString(), attachments: Array.isArray($json.attachmentMetadata) ? $json.attachmentMetadata.map(f => ({ name: String(f.name || ''), size: Number(f.size || 0), type: String(f.type || 'application/octet-stream') })) : [] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10304,
+        1888
+      ],
+      "id": "store-inbound-reply-fix",
+      "name": "Store Reply + Attachment Metadata",
+      "notes": "Stores reply text and attachment metadata {name,size,type}. The API does not receive original JPG/PDF bytes."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://staging-api.naf-cloudsystem.de/api/authenticate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ identifier: ($vars.NAF_API_USERNAME || $env.NAF_API_USERNAME || ''), password: ($vars.NAF_API_PASSWORD || $env.NAF_API_PASSWORD || '') }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -11184,
+        1792
+      ],
+      "id": "naf-api-authenticate",
+      "name": "Authenticate NAF API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Authenticate NAF API').first().json || {};\nconst body = typeof response.body === 'string' ? (() => { try { return JSON.parse(response.body); } catch { return {}; } })() : (response.body || {});\nconst source = response.data || response.result || body.data || body.result || body || response;\nconst authToken = source.accessToken || source.access_token || source.token || source.jwt || source.id_token || response.accessToken || response.access_token || response.token || response.jwt || response.id_token || '';\nreturn [{ json: { authToken: String(authToken || '') } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11040,
+        1792
+      ],
+      "id": "naf-read-authentication-token",
+      "name": "Read Authentication Token"
+    }
+  ],
+  "connections": {
+    "Microsoft Outlook Trigger6": {
+      "main": [
+        [
+          {
+            "node": "Filter Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data2": {
+      "main": [
+        [
+          {
+            "node": "Has Ticket Reference?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket (With Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Build Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Ticket (No Attachments)": {
+      "main": [
+        [
+          {
+            "node": "Build Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attachments?1": {
+      "main": [
+        [
+          {
+            "node": "Create Ticket (With Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Ticket (No Attachments)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Sender": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Ticket Reference?": {
+      "main": [
+        [
+          {
+            "node": "Authenticate NAF API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Attachments?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Existing Tickets": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Ticket": {
+      "main": [
+        [
+          {
+            "node": "Has Matching Ticket?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Matching Ticket?": {
+      "main": [
+        [
+          {
+            "node": "Store Reply on Existing Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate NAF API": {
+      "main": [
+        [
+          {
+            "node": "Read Authentication Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Authentication Token": {
+      "main": [
+        [
+          {
+            "node": "Lookup Existing Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Reply + Attachment Metadata": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c53257bed1f0fcf835991b184a5f5a690a62c31f39b42c9afb9d86ed3ee22612"
+  }
+}

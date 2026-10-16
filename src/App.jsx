@@ -26,7 +26,9 @@ import {
   WifiOff,
   Globe,
   ChevronDown,
-  Check
+  Check,
+  LogOut,
+  Bell
 } from 'lucide-react';
 import logo from './assets/naf-logo-animated.gif';
 import LoginPage from './LoginPage';
@@ -40,6 +42,11 @@ const WHATSAPP_ENABLED = false;
 const N8N_TICKET_EVENTS_URL = import.meta.env.VITE_N8N_TICKET_EVENTS_URL || 'https://n8n.naf-cloudsystem.de/webhook/ticket-events';
 const N8N_WHATSAPP_TICKET_EVENTS_URL = import.meta.env.VITE_N8N_WHATSAPP_TICKET_EVENTS_URL || 'https://n8n.naf-cloudsystem.de/webhook/whatsapp-ticket-events';
 const DISPLAY_TIME_ZONE = 'Europe/Berlin';
+// n8n receives reply attachments as base64 inside JSON. A 10 MB raw-file
+// limit becomes roughly 13.3 MB on the wire because base64 adds about 33%.
+// The n8n/proxy request-body limit must therefore be configured above that.
+const MAX_REPLY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_REPLY_TOTAL_BYTES = 10 * 1024 * 1024;
 
 function normalizeApiTimestamp(value) {
   const raw = String(value || '').trim();
@@ -281,8 +288,74 @@ async function hydrateAttachmentPreviews(ticketId, history) {
   }
 }
 
-async function notifyTicketEvent(ticket, eventType, extra = {}) {
+function buildTicketReplySubject(ticket, subject = '') {
+  const reference = String(
+    ticket?.ticketId
+      || ticket?.ticketReference
+      || ticket?.ticketNumber
+      || ticket?.id
+      || ''
+  ).trim();
+  const base = String(subject || ticket?.subject || reference || 'Support request').trim();
+  if (!reference || base.toLowerCase().includes(reference.toLowerCase())) return base;
+  return `${base} (${reference})`;
+}
+
+function getDesktopNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  return window.Notification.permission;
+}
+
+function sendNewTicketDesktopNotification(ticket) {
+  if (getDesktopNotificationPermission() !== 'granted') return;
+  const reference = ticket.ticketId || ticket.ticketReference || ticket.ticketNumber || ticket.id || 'New ticket';
+  const subject = ticket.subject || 'New support request';
+  const notification = new window.Notification('New support ticket', {
+    body: `${reference} · ${subject}`,
+    tag: `naf-ticket-${ticket.id || reference}`,
+  });
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+}
+
+function getTicketEmailTemplate(ticket, eventType, ticketStatus) {
+  const reference = String(
+    ticket?.ticketId
+      || ticket?.ticketReference
+      || ticket?.ticketNumber
+      || ticket?.id
+      || ''
+  ).trim();
+  const normalizedEvent = String(eventType || '').trim().toUpperCase();
+  const normalizedStatus = String(ticketStatus || ticket?.status || 'OPEN').trim().toUpperCase();
+
+  let label = 'Support reply';
+  let preheader = `You have a new response about ${reference}.`;
+  if (normalizedEvent === 'TICKET_RECEIVED') {
+    label = 'Request received';
+    preheader = `Your reference is ${reference}. Reply here to add details.`;
+  } else if (normalizedEvent === 'STATUS_CHANGED' && normalizedStatus === 'IN_PROGRESS') {
+    label = 'In Progress';
+    preheader = `Our team has started reviewing ${reference}.`;
+  } else if (normalizedEvent === 'STATUS_CHANGED' && normalizedStatus === 'CLOSED') {
+    label = 'Ticket closed';
+    preheader = `Review the outcome for ${reference}.`;
+  } else if (normalizedEvent === 'STATUS_CHANGED' && normalizedStatus === 'OPEN') {
+    label = 'Ticket reopened';
+    preheader = `We will continue helping with ${reference}.`;
+  }
+
+  return {
+    subject: reference ? `[${reference}] ${label}` : label,
+    preheader,
+  };
+}
+
+async function notifyTicketEvent(ticket, eventType, extra = {}, options = {}) {
   const { message, attachments, ...eventFields } = extra;
+  const { onUploadProgress } = options;
   const rawChannel = String(ticket.channel || ticket.source || '').trim();
   const ticketPhone = ticket.phone || ticket.whatsappNumber || ticket.recipientPhoneNumber || '';
   const channel = rawChannel
@@ -290,7 +363,9 @@ async function notifyTicketEvent(ticket, eventType, extra = {}) {
     : (ticketPhone && !ticket.email ? 'WhatsApp' : 'Website form');
   const isWhatsApp = channel === 'WhatsApp';
   const normalizedTicketPhone = isWhatsApp ? normalizeWhatsAppPhone(ticketPhone) : ticketPhone;
-  const ticketRef = ticket.ticketId || ticket.ticketReference || ticket.ticketNumber || ticket.id || '';
+  const ticketRef = String(ticket.ticketId || ticket.ticketReference || ticket.ticketNumber || ticket.id || '').trim();
+  const ticketStatus = eventFields.ticketStatus || ticket.status || 'OPEN';
+  const emailTemplate = getTicketEmailTemplate({ ...ticket, ticketId: ticketRef }, eventType, ticketStatus);
   const recipient = eventFields.to || (isWhatsApp
     ? normalizedTicketPhone
     : ticket.email || '');
@@ -302,7 +377,7 @@ async function notifyTicketEvent(ticket, eventType, extra = {}) {
   }
   const payload = {
     eventType,
-    ticketStatus: eventFields.ticketStatus || ticket.status || 'OPEN',
+    ticketStatus,
     channel,
     to: recipient,
     phone: normalizedTicketPhone,
@@ -311,19 +386,99 @@ async function notifyTicketEvent(ticket, eventType, extra = {}) {
     subject: eventFields.subject || ticket.subject || ticket.ticketId || '',
     ticketId: ticket.id || ticket.ticketId || '',
     ticketRef,
+    ticketReference: ticketRef,
+    emailSubject: eventFields.emailSubject || emailTemplate.subject,
+    emailPreheader: eventFields.emailPreheader || emailTemplate.preheader,
     requestType: ticket.requestType || 'Support Request',
     ...eventFields,
   };
 
   if (message) payload.message = message;
   if (attachments?.length) {
+    const totalBytes = attachments.reduce((sum, file) => sum + Number(file?.size || 0), 0);
+    if (attachments.some(file => Number(file?.size || 0) > MAX_REPLY_ATTACHMENT_BYTES)) {
+      throw new Error('An attachment is larger than 10 MB.');
+    }
+    if (totalBytes > MAX_REPLY_TOTAL_BYTES) {
+      throw new Error('The reply attachments exceed the 10 MB total limit.');
+    }
     payload.attachments = await Promise.all(attachments.map(fileToBase64));
   }
 
-  const response = await fetch(isWhatsApp ? N8N_WHATSAPP_TICKET_EVENTS_URL : N8N_TICKET_EVENTS_URL, {
+  const eventUrl = isWhatsApp ? N8N_WHATSAPP_TICKET_EVENTS_URL : N8N_TICKET_EVENTS_URL;
+  const requestBody = JSON.stringify(payload);
+
+  // Fetch does not expose request-upload progress in the browser. Use XHR
+  // only when a caller asks for progress; all other events keep the existing
+  // fetch path and behavior.
+  if (typeof onUploadProgress === 'function' && typeof XMLHttpRequest !== 'undefined') {
+    onUploadProgress(0);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let processingTimer = null;
+      let displayedProgress = 0;
+      const stopProcessingProgress = () => {
+        if (processingTimer !== null) {
+          window.clearInterval(processingTimer);
+          processingTimer = null;
+        }
+      };
+      const startProcessingProgress = () => {
+        if (processingTimer !== null) return;
+        displayedProgress = Math.max(displayedProgress, 90);
+        onUploadProgress(displayedProgress);
+        processingTimer = window.setInterval(() => {
+          displayedProgress = Math.min(99, displayedProgress + 1);
+          onUploadProgress(displayedProgress);
+          if (displayedProgress >= 99) stopProcessingProgress();
+        }, 700);
+      };
+      xhr.open('POST', eventUrl, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.timeout = 180000;
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const uploadProgress = Math.min(100, Math.max(0, Math.round((event.loaded / event.total) * 100)));
+          // The browser reports 100% when bytes leave the browser, but n8n
+          // may still be processing the request. Reserve 100% for success.
+          if (uploadProgress >= 100) {
+            startProcessingProgress();
+          } else {
+            displayedProgress = Math.min(90, uploadProgress);
+            onUploadProgress(displayedProgress);
+          }
+        }
+      };
+      xhr.onload = () => {
+        stopProcessingProgress();
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onUploadProgress(100);
+          resolve(true);
+          return;
+        }
+        const detail = String(xhr.responseText || '').trim();
+        reject(new Error(`n8n returned ${xhr.status}${detail ? `: ${detail.slice(0, 240)}` : ''}`));
+      };
+      xhr.onerror = () => {
+        stopProcessingProgress();
+        reject(new Error('Failed to reach the n8n webhook.'));
+      };
+      xhr.ontimeout = () => {
+        stopProcessingProgress();
+        reject(new Error('The attachment upload timed out.'));
+      };
+      xhr.onabort = () => {
+        stopProcessingProgress();
+        reject(new Error('The attachment upload was cancelled.'));
+      };
+      xhr.send(requestBody);
+    });
+  }
+
+  const response = await fetch(eventUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: requestBody,
   });
 
   if (!response.ok) {
@@ -421,6 +576,26 @@ function normalizeChannel(value) {
   return 'Website form';
 }
 
+function extractIssuePage(payload) {
+  const root = payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
+    ? payload.data
+    : payload;
+  if (Array.isArray(root)) return { items: root, totalPages: 1 };
+  if (!root || typeof root !== 'object') return { items: [], totalPages: 1 };
+
+  const items = [root.content, root.issues, root.tickets, root.items, root.results]
+    .find(value => Array.isArray(value));
+  if (items) {
+    const totalPages = Number(root.totalPages);
+    return {
+      items,
+      totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : null,
+    };
+  }
+  if (Array.isArray(root.data)) return { items: root.data, totalPages: 1 };
+  return { items: [], totalPages: 1 };
+}
+
 const MISSING_VALUE_MARKERS = new Set([
   '',
   '-',
@@ -506,18 +681,20 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const refreshInFlight = useRef(false);
   const notifiedWebsiteTickets = useRef(new Set());
+  const hasLoadedTicketSnapshot = useRef(false);
 
   const handleLogout = () => {
     localStorage.removeItem('authData');
     sessionStorage.removeItem('authData');
+    notifiedWebsiteTickets.current.clear();
+    hasLoadedTicketSnapshot.current = false;
     setIsAuthenticated(false);
   };
 
   useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(timer);
-    }
+    if (!toast || toast.variant === 'error' || toast.variant === 'progress') return undefined;
+    const timer = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timer);
   }, [toast]);
 
   // Load Uploaded Fonts via @font-face and set Global Styles
@@ -554,16 +731,16 @@ export default function App() {
       .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
 
       /* Toast animations */
-      @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
+      @keyframes toastDrop {
+        from { transform: translateY(-12px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
       @keyframes shrinkWidth {
         from { width: 100%; }
         to { width: 0%; }
       }
-      .toast-enter { animation: slideUp 0.3s ease-out; }
-      .toast-progress { animation: shrinkWidth 3s linear forwards; }
+      .toast-enter { animation: toastDrop 0.3s ease-out; }
+      .toast-progress { animation: shrinkWidth 5s linear forwards; }
 
       /* Count-up fade */
       @keyframes fadeInUp {
@@ -590,18 +767,33 @@ export default function App() {
     setRefreshing(true);
     try {
       const headers = getAuthHeaders(isAuthenticated);
-      const response = await fetch('/api/NAFWebsite/issues', { headers });
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('authData');
-          sessionStorage.removeItem('authData');
-          setIsAuthenticated(false);
-          return;
+      const pageSize = 100;
+      const requestPage = async (page) => {
+        const response = await fetch(`/api/NAFWebsite/issues?page=${page}&size=${pageSize}`, { headers });
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('authData');
+            sessionStorage.removeItem('authData');
+            setIsAuthenticated(false);
+            return null;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      const rawContent = Array.isArray(data.content) ? data.content : [];
+        return response.json();
+      };
+
+      const firstData = await requestPage(0);
+      if (!firstData) return;
+      const firstPage = extractIssuePage(firstData);
+      const totalPages = firstPage.totalPages;
+      const remainingPages = Number.isFinite(totalPages)
+        ? Math.max(0, Math.min(totalPages, 100) - 1)
+        : (firstPage.items.length === pageSize ? 99 : 0);
+      const remainingData = remainingPages > 0
+        ? await Promise.all(Array.from({ length: remainingPages }, (_, index) => requestPage(index + 1)))
+        : [];
+      const rawContent = [firstPage, ...remainingData.filter(Boolean).map(extractIssuePage)]
+        .flatMap(page => page.items);
 
       const docs = rawContent.map(item => {
         // Handle potentially re-mapped fields from backend
@@ -728,21 +920,32 @@ export default function App() {
 
       docs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Auto-send confirmation emails for new website-form tickets
-      const isFirstLoad = notifiedWebsiteTickets.current.size === 0;
+      // Announce tickets that appeared after the initial dashboard load.
+      const isFirstLoad = !hasLoadedTicketSnapshot.current;
       if (isFirstLoad) {
         docs.forEach(d => notifiedWebsiteTickets.current.add(d.id));
+        hasLoadedTicketSnapshot.current = true;
       } else {
+        const newTickets = [];
         docs.forEach(d => {
-          if (!notifiedWebsiteTickets.current.has(d.id) && d.channel === 'Website form' && d.email) {
+          if (!notifiedWebsiteTickets.current.has(d.id)) {
             notifiedWebsiteTickets.current.add(d.id);
-            // Auto-notification disabled: the public Support Page now triggers the webhook instantly via Option B.
-            // notifyTicketEvent(d, 'TICKET_RECEIVED', {})
-            //  .catch(err => console.warn('Auto-notification for website ticket failed:', d.ticketId, err.message));
+            newTickets.push(d);
           } else {
             notifiedWebsiteTickets.current.add(d.id);
           }
         });
+        if (newTickets.length > 0) {
+          const first = newTickets[0];
+          const reference = first.ticketId || first.ticketReference || first.ticketNumber || first.id || '';
+          setToast({
+            title: newTickets.length === 1 ? 'New ticket received' : `${newTickets.length} new tickets received`,
+            message: newTickets.length === 1
+              ? `${reference} · ${first.subject || 'New support request'}`
+              : 'The ticket list has been updated.',
+          });
+          newTickets.forEach(sendNewTicketDesktopNotification);
+        }
       }
 
       // Merge local-only data (emails, closedAt) that isn't in the API response
@@ -793,8 +996,8 @@ export default function App() {
         />
       </AdminLayout>
       {toast && (
-        <div className="fixed bottom-8 right-8 z-[100] toast-enter">
-          <div className="flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border backdrop-blur-md relative overflow-hidden"
+        <div className="fixed top-16 left-1/2 z-[100] -translate-x-1/2">
+          <div className="toast-enter flex w-fit max-w-[min(92vw,460px)] items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border backdrop-blur-md relative overflow-hidden"
             style={{
               backgroundColor: 'rgba(29, 29, 31, 0.9)',
               borderColor: toast.variant === 'error' ? '#EF4444' : COLORS.primary[500],
@@ -804,19 +1007,28 @@ export default function App() {
               style={{ backgroundColor: toast.variant === 'error' ? 'rgba(239,68,68,0.15)' : `${COLORS.primary[500]}20` }}>
               {toast.variant === 'error'
                 ? <AlertTriangle className="w-4 h-4 text-red-500" />
-                : <RefreshCw className="w-4 h-4" style={{ color: COLORS.primary[500] }} />
+                : toast.variant === 'progress'
+                  ? <Paperclip className="w-4 h-4" style={{ color: COLORS.primary[500] }} />
+                  : <RefreshCw className="w-4 h-4" style={{ color: COLORS.primary[500] }} />
               }
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-bold text-white force-satoshi">{toast.title || "Notice"}</h4>
-              <p className="text-xs text-white/60 force-satoshi">{toast.message}</p>
+              <p className="break-words text-xs text-white/60 force-satoshi">{toast.message}</p>
             </div>
-            <button onClick={() => setToast(null)} className="ml-4 hover:bg-white/10 p-1 rounded-full transition-colors">
+            <button onClick={() => setToast(null)} className="shrink-0 hover:bg-white/10 p-1 rounded-full transition-colors">
               <X className="w-4 h-4 text-white/40" />
             </button>
             {/* Progress bar */}
-            <div className="absolute bottom-0 left-0 h-[2px] toast-progress"
-              style={{ backgroundColor: toast.variant === 'error' ? '#EF4444' : COLORS.primary[500] }} />
+            {toast.variant === 'progress' ? (
+              <div
+                className="absolute bottom-0 left-0 h-[2px] transition-[width] duration-150 ease-out"
+                style={{ width: `${Math.max(0, Math.min(100, Number(toast.progress) || 0))}%`, backgroundColor: COLORS.primary[500] }}
+              />
+            ) : toast.variant !== 'error' && (
+              <div className="absolute bottom-0 left-0 h-[2px] toast-progress"
+                style={{ backgroundColor: COLORS.primary[500] }} />
+            )}
           </div>
         </div>
       )}
@@ -885,15 +1097,16 @@ function AdminLayout({ children, onLogout }) {
               )}
             </div>
 
-            <div 
+            <button
+              type="button"
               onClick={onLogout}
-              className="group flex items-start px-[12px] py-[8px] gap-[6px] rounded-[8px] border cursor-pointer hover:bg-white/5 transition-colors"
-              style={{ borderColor: '#26292E', backgroundColor: '#131416' }}
+              className="flex items-center px-[12px] py-[8px] gap-[6px] rounded-[8px] border cursor-pointer transition-colors hover:bg-[#3A1719]"
+              style={{ borderColor: '#7A3034', backgroundColor: '#261315', color: '#FF8B8F' }}
               title={t("Click to logout")}
             >
-              <span className="text-[11px] font-medium group-hover:hidden" style={{ color: '#A8ADB8' }}>{t('Admin')}</span>
-              <span className="hidden text-[11px] font-medium group-hover:inline" style={{ color: '#A8ADB8' }}>{t('Logout')}</span>
-            </div>
+              <LogOut className="h-[14px] w-[14px]" />
+              <span className="text-[11px] font-medium">{t('Logout')}</span>
+            </button>
           </div>
         </header>
 
@@ -1042,6 +1255,19 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
     reference: true, source: true, subject: true, requester: true,
     machine: true, requestType: true, status: true,
   });
+  const [desktopNotificationPermission, setDesktopNotificationPermission] = useState(getDesktopNotificationPermission);
+
+  const enableDesktopNotifications = async () => {
+    if (desktopNotificationPermission === 'unsupported') {
+      setToast({ title: 'Notifications unavailable', message: 'This browser does not support desktop notifications.', variant: 'error' });
+      return;
+    }
+    const permission = await window.Notification.requestPermission();
+    setDesktopNotificationPermission(permission);
+    setToast(permission === 'granted'
+      ? { title: 'Notifications enabled', message: 'You will be notified when a new ticket arrives.' }
+      : { title: 'Notifications blocked', message: 'Allow notifications in Chrome site settings to enable them.', variant: 'error' });
+  };
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const columnsRef = useRef(null);
@@ -1084,7 +1310,13 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
           const mappedData = data.map(email => ({
             ...email,
             attachments: (email.attachments || []).map(normalizeAttachment),
-            direction: email.direction === 'outbound' ? 'sent' : 'received'
+            direction: email.direction === 'outbound' ? 'sent' : 'received',
+            // Stored outbound messages were accepted by n8n before they were
+            // written to the conversation API. Keep a WhatsApp-like status
+            // after refresh, while inbound messages have no delivery state.
+            deliveryStatus: email.direction === 'outbound'
+              ? String(email.deliveryStatus || email.deliveryState || 'delivered').toLowerCase()
+              : ''
           }));
           const hydratedData = await hydrateAttachmentPreviews(activeTicket.id, mappedData);
           setEmailHistory(prev => ({ ...prev, [activeTicket.id]: hydratedData }));
@@ -1167,7 +1399,10 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
         (t.ticketId || '').toLowerCase().includes(q) ||
         (t.subject || t.problemType || '').toLowerCase().includes(q) ||
         (t.contactPerson || '').toLowerCase().includes(q) ||
-        (t.machineNumber || '').toLowerCase().includes(q)
+        (t.email || '').toLowerCase().includes(q) ||
+        (t.phone || '').toLowerCase().includes(q) ||
+        (t.machineNumber || '').toLowerCase().includes(q) ||
+        (t.machineLocation || t.location || '').toLowerCase().includes(q)
       );
     }
 
@@ -1268,18 +1503,37 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
     }
   };
 
-  const handleEmailSent = async (ticketId, emailData, attachmentFiles = []) => {
-    // Store in API
+  const handleEmailSent = async (ticketId, emailData, attachmentFiles = [], options = {}) => {
+    const localEmail = {
+      ...emailData,
+      deliveryStatus: emailData.deliveryStatus || (emailData.subject === 'Internal Note' ? '' : 'delivered')
+    };
+
+    // Failed n8n delivery is shown locally as undelivered, but is never
+    // written to the backend conversation history.
+    if (options.skipApi) {
+      setEmailHistory(prev => ({
+        ...prev,
+        [ticketId]: [...(prev[ticketId] || []), localEmail]
+      }));
+      return false;
+    }
+
+    // Store in API only after the complete n8n delivery request succeeded.
+    let historyStored = false;
     try {
       const headers = getAuthHeaders(isAuthenticated);
       const postBody = {
-        subject: emailData.subject,
-        message: emailData.message,
-        senderName: emailData.senderName,
+        subject: String(emailData.subject || ''),
+        message: String(emailData.message || ''),
+        senderName: String(emailData.senderName || ''),
         senderEmail: 'support@naf-halsbach.de', // Admin sender email
-        senderType: emailData.senderType,
+        senderType: String(emailData.senderType || 'Admin'),
         direction: 'outbound',
-        attachments: (emailData.attachments || []).map(({ name, size, type }) => ({ name, size, type }))
+        // The uploaded files are sent as multipart parts. The API returns the
+        // stored URLs in its response; emailData.attachments must remain a
+        // string URL array, so new uploads start empty.
+        attachments: []
       };
 
       const formData = new FormData();
@@ -1287,7 +1541,9 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
       files.forEach((file) => {
         if (file) formData.append('attachments', file, file.name);
       });
-      // Staging expects the multipart field even for a text-only reply.
+      // Undertow on staging requires at least one multipart part even when
+      // the reply has no real file. Keep this as a normal empty form field;
+      // real files remain repeated `attachments` file parts.
       if (files.length === 0) formData.append('attachments', '');
 
       const emailUrl = `/api/NAFWebsite/issue/${encodeURIComponent(ticketId)}/emails?emailData=${encodeURIComponent(JSON.stringify(postBody))}`;
@@ -1296,16 +1552,28 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
         headers,
         body: formData
       });
-      if (!response.ok) throw new Error(`Email history request failed with ${response.status}.`);
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Email history request failed with ${response.status}: ${responseText.slice(0, 600)}`);
+      }
+      historyStored = true;
     } catch (err) {
       console.error("Failed to store email history in API:", err);
+      // The email may already be delivered by n8n. Keep that state visible in
+      // the current conversation, while the failed history write is reported.
+      setEmailHistory(prev => ({
+        ...prev,
+        [ticketId]: [...(prev[ticketId] || []), localEmail]
+      }));
+      return false;
     }
 
     // Store in local state for immediate UI update
     setEmailHistory(prev => ({
       ...prev,
-      [ticketId]: [...(prev[ticketId] || []), emailData]
+      [ticketId]: [...(prev[ticketId] || []), localEmail]
     }));
+    return historyStored;
   };
 
   // Every ticket begins with the customer's intake request; API history adds replies and notes.
@@ -1357,6 +1625,18 @@ function AdminDashboard({ isAuthenticated, tickets, loading, refreshing, fetchEr
           style={{ backgroundColor: COLORS.primary[500], borderColor: COLORS.activeBorder, color: COLORS.backgrounds.main }}>
           {t('+  New ticket')}
         </button>
+        {desktopNotificationPermission !== 'granted' && (
+          <button
+            type="button"
+            onClick={enableDesktopNotifications}
+            className="flex h-[34px] shrink-0 items-center gap-1.5 rounded-[7px] border px-3 text-xs font-medium transition-colors hover:bg-white/5"
+            style={{ borderColor: COLORS.border, color: COLORS.text.body }}
+            title={t('Enable desktop notifications')}
+          >
+            <Bell className="h-3.5 w-3.5" />
+            {t('Enable notifications')}
+          </button>
+        )}
       </div>
 
       {/* Queue Overview KPI Strip */}
@@ -1811,8 +2091,13 @@ function DeleteModal({ isAuthenticated, ticket, onClose, setTickets, setToast })
 function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns }) {
   const { t, lang, locale } = useTranslation();
   const channel = getUiChannel(ticket.channel || 'Website form');
-  const machineIdMissing = isMissingValue(ticket.machineId);
-  const locationMissing = isMissingValue(ticket.location);
+  // Machine ID and location are stored and submitted as one field.
+  // Prefer the canonical machineLocation value and render it only once.
+  const machineLocation = !isMissingValue(ticket.machineLocation)
+    ? ticket.machineLocation
+    : !isMissingValue(ticket.location)
+      ? ticket.location
+      : 'N/A';
   const mediaCount = ticket.media?.length || 0;
   const mediaLabel = mediaCount > 0 ? `${mediaCount === 1 ? (ticket.media[0]?.type?.startsWith('image') ? t('Photo') : t('File')) : t('Files')} · ${mediaCount} ${t(mediaCount > 1 ? 'files' : 'file')}` : null;
 
@@ -1858,17 +2143,12 @@ function AdminTicketRow({ ticket, isSelected, onClick, visibleColumns }) {
 
       {/* MACHINE / LOCATION */}
       {visibleColumns.machine && <div className="w-[230px] shrink-0 flex flex-col pr-[14px]">
-        {!machineIdMissing ? (
-          <span className="text-xs" style={{ color: COLORS.text.heading }}>{ticket.machineId}</span>
-        ) : (
-          <span className="text-[12px]" style={{ color: COLORS.text.disabled }}>{t('Not provided')}</span>
-        )}
-        
-        {!locationMissing ? (
-          <span className="text-[11px]" style={{ color: COLORS.text.body }}>{ticket.location}</span>
-        ) : (
-          <span className="text-[11px]" style={{ color: COLORS.text.body }}>—</span>
-        )}
+        <span
+          className="text-xs truncate"
+          style={{ color: isMissingValue(machineLocation) ? COLORS.text.disabled : COLORS.text.heading }}
+        >
+          {isMissingValue(machineLocation) ? t('Not provided') : machineLocation}
+        </span>
       </div>}
 
       {/* REQUEST TYPE */}
@@ -1907,23 +2187,43 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
   const channel = ticket.channel || 'Website form';
   const detailMachineLocation = !isMissingValue(ticket.machineLocation)
     ? ticket.machineLocation
-    : !isMissingValue(ticket.machineId)
-      ? ticket.machineId
-      : ticket.location;
+    : ticket.location;
+  const requesterValue = (value, fallback = 'N/A') => {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return !normalized || ['-', '—', 'n/a', 'not provided', 'unknown user', 'not collected'].includes(normalized)
+      ? t(fallback)
+      : value;
+  };
+  const requesterName = requesterValue(ticket.contactPerson);
+  const requesterEmail = requesterValue(ticket.email);
+  const requesterPhone = requesterValue(ticket.phone);
+
+  const updateUploadProgress = (value) => {
+    const percent = Math.round(Math.max(0, Math.min(100, Number(value) || 0)));
+    setToast?.({
+      // Keep the same progress state at 100% while n8n finishes processing
+      // the request. The final success/error toast replaces it afterwards.
+      title: t('Uploading attachments'),
+      message: `${percent}%`,
+      variant: 'progress',
+      progress: percent
+    });
+  };
   
   const handleReplyFileChange = (event) => {
     const files = Array.from(event.target.files || []);
-    const maxBytes = 5 * 1024 * 1024;
     const validFiles = files.filter(file => {
       const isImage = file.type?.startsWith('image/');
       const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-      return (isImage || isPdf) && file.size < maxBytes;
+      return (isImage || isPdf) && file.size <= MAX_REPLY_ATTACHMENT_BYTES;
     });
+    const totalBytes = validFiles.reduce((sum, file) => sum + file.size, 0);
+    const withinTotalLimit = totalBytes <= MAX_REPLY_TOTAL_BYTES;
 
-    setAttachmentError(validFiles.length === files.length
+    setAttachmentError(validFiles.length === files.length && withinTotalLimit
       ? ''
-      : t('Only image or PDF files smaller than 5 MB can be attached.'));
-    setReplyAttachments(prev => [...prev, ...validFiles]);
+      : t('Only image or PDF files up to 10 MB total can be attached.'));
+    if (withinTotalLimit) setReplyAttachments(prev => [...prev, ...validFiles]);
     event.target.value = '';
   };
 
@@ -1932,38 +2232,63 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
     setSending(true);
 
     if (replyMode === 'email') {
+      const selectedAttachments = [...replyAttachments];
       let webhookSuccess = false;
       try {
         webhookSuccess = await notifyTicketEvent(ticket, 'REPLY_SENT', {
           message,
-          subject: `Re: ${ticket.subject || ticket.ticketId}`,
-          attachments: replyAttachments,
-        });
+          subject: `Re: ${buildTicketReplySubject(ticket)}`,
+          attachments: selectedAttachments,
+        }, selectedAttachments.length > 0 ? { onUploadProgress: updateUploadProgress } : undefined);
       } catch (err) {
-        console.warn('n8n webhook not available:', err.message);
+        console.warn('n8n reply delivery failed:', err.message);
       }
-      
-      const newEmail = {
-        id: Math.random().toString(36).substring(2, 9),
-        subject: `Re: ${ticket.subject || ticket.ticketId}`,
-        message,
-        attachments: replyAttachments.map(fileAttachmentMetadata),
-        sentAt: new Date().toISOString(),
-        senderType: 'Admin',
-        senderName: t('NAF Support'),
-        direction: 'sent',
-      };
-      
-      await persistAttachmentPreviews(ticket.id, replyAttachments);
-      await onEmailSent(ticket.id, newEmail, replyAttachments);
-      const destination = channel === 'WhatsApp' ? ticket.phone : ticket.email;
-      setToast({
-        title: webhookSuccess ? t('Reply sent') : t('Reply saved, delivery failed'),
-        message: webhookSuccess
-          ? `${t('Reply sent to')} ${destination || t('the customer')}`
-          : t('The reply was saved locally, but n8n could not deliver it to WhatsApp/email.'),
-        variant: webhookSuccess ? undefined : 'error'
-      });
+
+      if (!webhookSuccess) {
+        // Never fall back to a text-only request when the user selected files.
+        // Keep a local undelivered marker so the failed attempt is visible.
+        await onEmailSent(ticket.id, {
+          id: Math.random().toString(36).substring(2, 9),
+          subject: `Re: ${ticket.subject || ticket.ticketId}`,
+          message,
+          attachments: [],
+          sentAt: new Date().toISOString(),
+          senderType: 'Admin',
+          senderName: t('NAF Support'),
+          direction: 'sent',
+          deliveryStatus: 'undelivered'
+        }, [], { skipApi: true });
+        setToast({
+          title: t('Reply not sent'),
+          message: selectedAttachments.length > 0
+            ? t('Attachment upload failed. No text-only fallback was sent.')
+            : t('The reply could not be delivered.'),
+          variant: 'error'
+        });
+      } else {
+        const newEmail = {
+          id: Math.random().toString(36).substring(2, 9),
+          subject: `Re: ${ticket.subject || ticket.ticketId}`,
+          message,
+          attachments: selectedAttachments.map(fileAttachmentMetadata),
+          sentAt: new Date().toISOString(),
+          senderType: 'Admin',
+          senderName: t('NAF Support'),
+          direction: 'sent',
+          deliveryStatus: 'delivered'
+        };
+
+        await persistAttachmentPreviews(ticket.id, selectedAttachments);
+        const historyStored = await onEmailSent(ticket.id, newEmail, selectedAttachments);
+        const destination = channel === 'WhatsApp' ? ticket.phone : ticket.email;
+        setToast({
+          title: historyStored ? t('Reply sent') : 'Reply delivery/storage issue',
+          message: historyStored
+            ? `${t('Reply sent to')} ${destination || t('the customer')}`
+            : 'The email was delivered, but the conversation history was rejected by the API.',
+          variant: historyStored ? undefined : 'error'
+        });
+      }
     } else {
       // Internal note
       const newEmail = {
@@ -2068,14 +2393,22 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
           {/* Requester */}
           <div className="p-4 flex flex-col gap-3.5 rounded-[14px] border border-[#212429] bg-[#0C0C0E]">
             <span className="text-xs font-semibold text-[#D1D6DE]">{t("Requester")}</span>
-            <span className="text-[13px] font-semibold text-[#E8EBF0]">{ticket.contactPerson || t('Unknown User')}</span>
-            {ticket.email && <span className="text-[10px] text-[#7A808C]">{ticket.email}</span>}
-            {ticket.phone && <span className="text-[10px] text-[#7A808C]">{ticket.phone}</span>}
-            <span className="text-[11px] text-[#A0A8AD]">{displayAccountType(ticket.accountType, t)}</span>
-            <div className="-mt-1 flex flex-col gap-2.5">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-[#6B707D]">{t("Machine ID / Location")}</span>
-                <span className="max-w-[170px] text-right text-[10px] font-medium text-[#B8BDC7]">{isMissingValue(detailMachineLocation) ? t('N/A') : detailMachineLocation}</span>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-[10px] text-[#6B707D]">{t('Name')}</span>
+                <span className="max-w-[190px] truncate text-right text-[10px] font-medium text-[#B8BDC7]">{requesterName}</span>
+              </div>
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-[10px] text-[#6B707D]">{t('Email')}</span>
+                <span className="max-w-[190px] truncate text-right text-[10px] font-medium text-[#B8BDC7]">{requesterEmail}</span>
+              </div>
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-[10px] text-[#6B707D]">{t('Phone number')}</span>
+                <span className="max-w-[190px] truncate text-right text-[10px] font-medium text-[#B8BDC7]">{requesterPhone}</span>
+              </div>
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-[10px] text-[#6B707D]">{t('Machine / Location')}</span>
+                <span className="max-w-[190px] truncate text-right text-[10px] font-medium text-[#B8BDC7]">{isMissingValue(detailMachineLocation) ? t('N/A') : detailMachineLocation}</span>
               </div>
             </div>
           </div>
@@ -2102,6 +2435,10 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
               if (isServiceTeam) msgStyle = { border: 'border-[#2E2940]', bg: 'bg-[#13111A]', metaColor: 'text-[#AB99F2]' };
 
               const timeStr = new Date(msg.sentAt).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+              const deliveryStatus = !isInternal && msg.direction === 'sent'
+                ? String(msg.deliveryStatus || 'delivered').toLowerCase()
+                : '';
+              const isDelivered = deliveryStatus === 'delivered' || deliveryStatus === 'sent' || deliveryStatus === 'success';
 
               return (
                 <div key={i} className={`p-3.5 flex flex-col gap-[9px] rounded-[14px] border ${msgStyle.border} ${msgStyle.bg}`}>
@@ -2113,7 +2450,14 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                           ? `${msg.senderName} · ${t('Internal')}`
                           : `${msg.senderName} · ${displayChannel(isCustomer ? channel : (channel === 'WhatsApp' ? 'WhatsApp' : 'Email'), t)}`}
                     </span>
-                    <span className="text-[10px] text-[#666B78]">{timeStr}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#666B78]">{timeStr}</span>
+                      {deliveryStatus && (
+                        <span className={`text-[10px] font-medium ${isDelivered ? 'text-[#78EF63]' : 'text-[#F38C86]'}`}>
+                          {isDelivered ? `✓ ${t('Delivered')}` : `⚠ ${t('Undelivered')}`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-[12px] text-[#C4C9D1] whitespace-pre-wrap">{msg.message}</div>
                   
@@ -2240,18 +2584,30 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                   </span>
                   <div className="flex items-center gap-2">
                     {replyMode === 'email' && (
-                      <button type="button" aria-label={t("Attach image or PDF")} title={t("Attach image or PDF (under 5 MB)")} onClick={() => replyFileInputRef.current?.click()} className="flex items-center gap-1.5 rounded-[9px] border border-[#282C2F] px-3 py-2 text-[10px] font-medium text-[#A0A8AD] transition-colors hover:border-[#78EF63]/50 hover:text-white">
-                        <Paperclip className="h-3.5 w-3.5" />
-                        {t('Attach')}
-                      </button>
+                      <>
+                        <span className="whitespace-nowrap text-[9px] text-[#737C78]">{t('Max. 10 MB total')}</span>
+                        <button type="button" aria-label={t("Attach image or PDF")} title={t("Attach image or PDF (up to 10 MB total)")} onClick={() => replyFileInputRef.current?.click()} className="flex items-center gap-1.5 rounded-[9px] border border-[#282C2F] px-3 py-2 text-[10px] font-medium text-[#A0A8AD] transition-colors hover:border-[#78EF63]/50 hover:text-white">
+                          <Paperclip className="h-3.5 w-3.5" />
+                          {t('Attach')}
+                        </button>
+                      </>
                     )}
                     <button 
                       onClick={handleSendReply}
                       disabled={!message.trim() || sending}
                       className="px-3.5 py-2 rounded-[9px] bg-[#47EB3D] disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-1.5"
                     >
-                      {sending && <RefreshCw className="w-3 h-3 text-[#050A05] animate-spin" />}
-                      <span className="text-[10px] font-semibold text-[#050A05]">{replyMode === 'email' ? t('Send reply') : t('Save note')}</span>
+                      {sending && replyMode === 'email' && replyAttachments.length > 0 ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 animate-spin text-[#050A05]" />
+                          <span className="text-[10px] font-semibold text-[#050A05]">{t('Sending…')}</span>
+                        </>
+                      ) : (
+                        <>
+                          {sending && <RefreshCw className="w-3 h-3 text-[#050A05] animate-spin" />}
+                          <span className="text-[10px] font-semibold text-[#050A05]">{replyMode === 'email' ? t('Send reply') : t('Save note')}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -2300,15 +2656,36 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
 
 function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
   const { t, lang, locale } = useTranslation();
-  const [subject, setSubject] = useState(`Re: ${ticket.subject || ticket.ticketId}`);
+  const [subject, setSubject] = useState(`Re: ${buildTicketReplySubject(ticket)}`);
   const [message, setMessage] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
 
+  const updateUploadProgress = (value) => {
+    const percent = Math.round(Math.max(0, Math.min(100, Number(value) || 0)));
+    setToast?.({
+      // Keep 100% visible until the n8n request itself returns.
+      title: t('Uploading attachments'),
+      message: `${percent}%`,
+      variant: 'progress',
+      progress: percent
+    });
+  };
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
-    setAttachments(prev => [...prev, ...files]);
+    const validFiles = files.filter(file => file.size <= MAX_REPLY_ATTACHMENT_BYTES);
+    const totalBytes = [...attachments, ...validFiles].reduce((sum, file) => sum + file.size, 0);
+    if (validFiles.length !== files.length || totalBytes > MAX_REPLY_TOTAL_BYTES) {
+      setToast({
+        title: t('Attachment upload failed'),
+        message: t('Only files up to 10 MB total can be attached.'),
+        variant: 'error'
+      });
+    } else {
+      setAttachments(prev => [...prev, ...validFiles]);
+    }
     e.target.value = '';
   };
 
@@ -2333,12 +2710,22 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
         subject,
         message,
         attachments,
-      });
+      }, attachments.length > 0 ? { onUploadProgress: updateUploadProgress } : undefined);
     } catch (err) {
-      console.warn('n8n webhook not available — email recorded locally only:', err.message);
+      console.warn('n8n reply delivery failed:', err.message);
     }
 
-    setSending(false);
+    if (!webhookSuccess) {
+      setToast({
+        title: t('Reply not sent'),
+        message: attachments.length > 0
+          ? t('Attachment upload failed. No text-only fallback was sent.')
+          : t('The reply could not be delivered.'),
+        variant: 'error'
+      });
+      setSending(false);
+      return;
+    }
 
     const newEmail = {
       id: Math.random().toString(36).substring(2, 9),
@@ -2349,20 +2736,28 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
       senderType: 'Admin',
       senderName: t('Support Team'),
       direction: 'sent',
+      deliveryStatus: 'delivered',
     };
 
     await persistAttachmentPreviews(ticket.id, attachments);
+    let historyStored = true;
     if (ticket.onEmailSent) {
-      ticket.onEmailSent(ticket.id, newEmail, attachments);
+      historyStored = await ticket.onEmailSent(ticket.id, newEmail, attachments);
     } else if (onEmailSent) {
-      onEmailSent(ticket.id, newEmail, attachments);
+      historyStored = await onEmailSent(ticket.id, newEmail, attachments);
     }
 
     if (setToast) {
       const attachText = attachments.length > 0 ? ` with ${attachments.length} attachment(s)` : '';
-      const statusText = webhookSuccess ? '' : ' (saved locally — n8n webhook pending setup)';
-      setToast({ title: "Email Sent Successfully", message: `${t("Email sent to")} ${ticket.email}${attachText}${statusText}` });
+      setToast({
+        title: historyStored ? "Email Sent Successfully" : 'Reply delivery/storage issue',
+        message: historyStored
+          ? `${t("Email sent to")} ${ticket.email}${attachText}`
+          : 'The email was delivered, but the conversation history was rejected by the API.',
+        variant: historyStored ? undefined : 'error'
+      });
     }
+    setSending(false);
     onClose();
   };
 
@@ -2411,6 +2806,7 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
               <Paperclip className="w-4 h-4" />
               {t('Click to attach files')}
             </button>
+            <p className="mt-1 text-[10px] text-white/40 force-satoshi">{t('Max. 10 MB total')}</p>
 
             {attachments.length > 0 && (
               <div className="mt-2 space-y-1.5">
@@ -2436,7 +2832,13 @@ function EmailModal({ ticket, onClose, setToast, onEmailSent }) {
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium hover:bg-white/5 rounded-lg transition-colors text-white force-satoshi">{t("Cancel")}</button>
             <button type="submit" disabled={sending} className="px-6 py-2 text-black text-sm font-bold rounded-lg hover:opacity-90 flex items-center gap-2 force-satoshi" style={{ backgroundColor: COLORS.primary[500] }}>
-              {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> {t('Send Email')}</>}
+              {sending && attachments.length > 0 ? (
+                <><RefreshCw className="h-4 w-4 animate-spin" /> {t('Sending…')}</>
+              ) : sending ? (
+                <><RefreshCw className="w-4 h-4 animate-spin" /> {t('Send Email')}</>
+              ) : (
+                <><Send className="w-4 h-4" /> {t('Send Email')}</>
+              )}
             </button>
           </div>
         </form>
@@ -2542,6 +2944,9 @@ function NewTicketModal({ isOpen, onClose, onTicketCreated, isAuthenticated }) {
 
       const uploadData = new FormData();
       attachments.forEach((file) => uploadData.append('mediaFiles', file));
+      // The staging endpoint expects the multipart field to exist even when
+      // the ticket has no files. Keep the request multipart in both branches.
+      if (attachments.length === 0) uploadData.append('mediaFiles', '');
       const res = await fetch(`/api/NAFWebsite/support-issues?issueData=${encodeURIComponent(JSON.stringify(payload))}`, {
         method: 'POST',
         headers,
