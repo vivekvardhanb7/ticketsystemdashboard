@@ -2435,6 +2435,16 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
               if (isServiceTeam) msgStyle = { border: 'border-[#2E2940]', bg: 'bg-[#13111A]', metaColor: 'text-[#AB99F2]' };
 
               const timeStr = new Date(msg.sentAt).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+              // The first message keeps the ticket's original intake source.
+              // Every later customer/admin conversation entry is delivered by
+              // the ticket channel: email replies should not inherit the
+              // original Website form label.
+              const isInitialMessage = msg.id === `initial-${ticket.id}`;
+              const messageChannel = isInitialMessage
+                ? channel
+                : (channel === 'WhatsApp' || String(msg.channel || msg.source || '').toLowerCase().includes('whatsapp')
+                  ? 'WhatsApp'
+                  : 'Email');
               const deliveryStatus = !isInternal && msg.direction === 'sent'
                 ? String(msg.deliveryStatus || 'delivered').toLowerCase()
                 : '';
@@ -2448,7 +2458,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                         ? t('Internal note')
                         : isServiceTeam
                           ? `${msg.senderName} · ${t('Internal')}`
-                          : `${msg.senderName} · ${displayChannel(isCustomer ? channel : (channel === 'WhatsApp' ? 'WhatsApp' : 'Email'), t)}`}
+                          : `${msg.senderName} · ${displayChannel(messageChannel, t)}`}
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-[#666B78]">{timeStr}</span>
