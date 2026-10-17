@@ -47,6 +47,63 @@ const DISPLAY_TIME_ZONE = 'Europe/Berlin';
 // The n8n/proxy request-body limit must therefore be configured above that.
 const MAX_REPLY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_REPLY_TOTAL_BYTES = 10 * 1024 * 1024;
+const MESSAGE_LINK_PATTERN = /([^\s()]+\.[a-z0-9]{2,8})\s*\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)/gi;
+
+function renderMessageWithLinks(value) {
+  const text = String(value ?? '');
+  const parts = [];
+  let cursor = 0;
+  let key = 0;
+
+  for (const match of text.matchAll(MESSAGE_LINK_PATTERN)) {
+    const matchStart = match.index ?? 0;
+    const labeledFilename = match[1];
+    const labeledUrl = match[2];
+    const rawUrl = match[3] || match[0];
+    const isLabeledLink = Boolean(labeledFilename && labeledUrl);
+    const trailing = isLabeledLink ? '' : rawUrl.match(/[),.;!?]+$/)?.[0] || '';
+    const href = isLabeledLink ? labeledUrl : (trailing ? rawUrl.slice(0, -trailing.length) : rawUrl);
+
+    if (matchStart > cursor) {
+      parts.push(<React.Fragment key={`message-text-${key++}`}>{text.slice(cursor, matchStart)}</React.Fragment>);
+    }
+
+    if (isLabeledLink) {
+      parts.push(
+        <a
+          key={`message-link-${key++}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          title="Open attachment link"
+          className="text-[#78EF63] underline decoration-[#78EF63]/40 underline-offset-2 hover:text-white"
+        >
+          {labeledFilename}
+        </a>
+      );
+    } else {
+      parts.push(
+        <a
+          key={`message-link-${key++}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          title="Open link"
+          className="text-[#78EF63] underline decoration-[#78EF63]/40 underline-offset-2 hover:text-white"
+        >
+          {href}
+        </a>
+      );
+      if (trailing) parts.push(<React.Fragment key={`message-trailing-${key++}`}>{trailing}</React.Fragment>);
+    }
+    cursor = matchStart + match[0].length;
+  }
+
+  if (cursor < text.length) {
+    parts.push(<React.Fragment key={`message-text-${key++}`}>{text.slice(cursor)}</React.Fragment>);
+  }
+  return parts;
+}
 
 function normalizeApiTimestamp(value) {
   const raw = String(value || '').trim();
@@ -2469,7 +2526,7 @@ function TicketDetailPage({ ticket, emails, onBack, onStatusChange, isUpdating, 
                       )}
                     </div>
                   </div>
-                  <div className="text-[12px] text-[#C4C9D1] whitespace-pre-wrap">{msg.message}</div>
+                  <div className="text-[12px] text-[#C4C9D1] whitespace-pre-wrap">{renderMessageWithLinks(msg.message)}</div>
                   
                   {/* Attachments */}
                   {msg.attachments && msg.attachments.length > 0 && (
